@@ -23,6 +23,9 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "text", summary: "Extract the text layer as UTF-8 text", run: runText),
     VerbEntry(name: "search", summary: "Find a string and print page + snippet", run: runSearch),
     VerbEntry(name: "outline", summary: "Print the table of contents", run: runOutline),
+    VerbEntry(name: "merge", summary: "Concatenate PDFs into one", run: runMerge),
+    VerbEntry(name: "split", summary: "Split into parts by count or chapter", run: runSplit),
+    VerbEntry(name: "pages", summary: "Extract/reorder or delete pages by range", run: runPages),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

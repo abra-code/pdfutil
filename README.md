@@ -31,5 +31,8 @@ and repeats are allowed.
 | `text` | Extract the text layer as UTF-8 (to stdout or an `-o` file) |
 | `search` | Find a string; print page + snippet, or `--count` / `--json` |
 | `outline` | Print the table of contents (indented or `--json`) |
+| `merge` | Concatenate PDFs into one, with optional per-input ranges |
+| `split` | Split into parts by page count (`--every`) or `--chapters` |
+| `pages` | Extract/reorder (`--extract`) or delete (`--delete`) pages |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
