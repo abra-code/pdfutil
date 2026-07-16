@@ -27,6 +27,9 @@ and repeats are allowed.
 
 | Verb | Description |
 | --- | --- |
+| `info` | Report version, page count, geometry, security, metadata, outline (`--json`) |
 | `text` | Extract the text layer as UTF-8 (to stdout or an `-o` file) |
+| `search` | Find a string; print page + snippet, or `--count` / `--json` |
+| `outline` | Print the table of contents (indented or `--json`) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

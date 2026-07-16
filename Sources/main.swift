@@ -19,7 +19,10 @@ struct VerbEntry {
 }
 
 let gVerbs: [VerbEntry] = [
+    VerbEntry(name: "info", summary: "Report version, pages, security, and metadata", run: runInfo),
     VerbEntry(name: "text", summary: "Extract the text layer as UTF-8 text", run: runText),
+    VerbEntry(name: "search", summary: "Find a string and print page + snippet", run: runSearch),
+    VerbEntry(name: "outline", summary: "Print the table of contents", run: runOutline),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {
