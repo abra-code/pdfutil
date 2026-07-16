@@ -1,2 +1,8 @@
 Private
 .DS_Store
+pdfutil
+pdfutil-x86_64
+pdfutil-arm64
+*.o
+Tests/tmp/
+Tests/fixtures/
