@@ -59,6 +59,12 @@ struct ArgScanner {
         positionals.append(a)
     }
 
+    // Append a positional without the leading-dash check, for verbs that take a
+    // legitimately dash-prefixed value like a negative rotation angle.
+    mutating func addRawPositional(_ a: String) {
+        positionals.append(a)
+    }
+
     // Called on "--": every remaining token is positional, dashes and all.
     mutating func endOptions() {
         while index < tokens.count {

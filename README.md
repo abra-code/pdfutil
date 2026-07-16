@@ -34,5 +34,8 @@ and repeats are allowed.
 | `merge` | Concatenate PDFs into one, with optional per-input ranges |
 | `split` | Split into parts by page count (`--every`) or `--chapters` |
 | `pages` | Extract/reorder (`--extract`) or delete (`--delete`) pages |
+| `rotate` | Rotate pages by 90/180/270/-90, lossless |
+| `crop` | Set a page box by `--rect` or `--margins` |
+| `metadata` | Read/`--set`/`--delete`/`--strip` Info-dictionary attributes |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

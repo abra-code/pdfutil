@@ -87,23 +87,7 @@ func gatherInfo(path: String, doc: PDFDocument, cgDoc: CGPDFDocument) -> DocInfo
     var minor: Int32 = 0
     cgDoc.getVersion(majorVersion: &major, minorVersion: &minor)
 
-    let attrs = doc.documentAttributes ?? [:]
-    func string(_ key: PDFDocumentAttribute) -> String? { attrs[key] as? String }
-    func date(_ key: PDFDocumentAttribute) -> Date? { attrs[key] as? Date }
-
-    var attributes = DocAttributes()
-    attributes.title = string(.titleAttribute)
-    attributes.author = string(.authorAttribute)
-    attributes.subject = string(.subjectAttribute)
-    attributes.creator = string(.creatorAttribute)
-    attributes.producer = string(.producerAttribute)
-    attributes.creationDate = date(.creationDateAttribute)
-    attributes.modificationDate = date(.modificationDateAttribute)
-    if let keywords = attrs[PDFDocumentAttribute.keywordsAttribute] as? [String] {
-        attributes.keywords = keywords
-    } else if let keyword = attrs[PDFDocumentAttribute.keywordsAttribute] as? String {
-        attributes.keywords = [keyword]
-    }
+    let attributes = readDocAttributes(doc)
 
     var pages: [PageInfo] = []
     pages.reserveCapacity(doc.pageCount)

@@ -26,6 +26,9 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "merge", summary: "Concatenate PDFs into one", run: runMerge),
     VerbEntry(name: "split", summary: "Split into parts by count or chapter", run: runSplit),
     VerbEntry(name: "pages", summary: "Extract/reorder or delete pages by range", run: runPages),
+    VerbEntry(name: "rotate", summary: "Rotate pages by 90/180/270/-90", run: runRotate),
+    VerbEntry(name: "crop", summary: "Set a page box by rect or margins", run: runCrop),
+    VerbEntry(name: "metadata", summary: "Read, set, delete, or strip metadata", run: runMetadata),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {
