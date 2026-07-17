@@ -17,19 +17,22 @@ func printUsage(_ text: String) {
     FileHandle.standardOutput.write(Data(body.utf8))
 }
 
-// Encode a Codable result as pretty JSON on stdout with a trailing newline.
-func emitJSON<T: Encodable>(_ value: T) throws {
+// Encode a Codable value to a pretty JSON string (sorted keys, ISO 8601 dates).
+// Shared by the --json verbs and the MCP tools.
+func encodeJSONString<T: Encodable>(_ value: T) throws -> String {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     encoder.dateEncodingStrategy = .iso8601
-    let data: Data
-    do {
-        data = try encoder.encode(value)
-    } catch {
+    guard let data = try? encoder.encode(value),
+          let string = String(data: data, encoding: .utf8) else {
         throw PDFUtilError.processing("failed to encode JSON output")
     }
-    FileHandle.standardOutput.write(data)
-    FileHandle.standardOutput.write(Data("\n".utf8))
+    return string
+}
+
+// Encode a Codable result as pretty JSON on stdout with a trailing newline.
+func emitJSON<T: Encodable>(_ value: T) throws {
+    writeOut(try encodeJSONString(value) + "\n")
 }
 
 // Write a text payload to stdout, or to a file under the overwrite policy

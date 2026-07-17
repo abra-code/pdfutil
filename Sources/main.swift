@@ -8,7 +8,8 @@
 import Foundation
 
 let kProgram = "pdfutil"
-let kVersion = "pdfutil 0.1"
+let kVersionNumber = "0.1"
+let kVersion = "pdfutil \(kVersionNumber)"
 
 // One entry per verb: its name, a one-line summary for the global help, and the
 // handler that parses the verb's own arguments and runs it.
@@ -40,6 +41,7 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "watermark", summary: "Stamp a text or image watermark", run: runWatermark),
     VerbEntry(name: "linearize", summary: "Rewrite for fast web view (linearized)", run: runLinearize),
     VerbEntry(name: "pdfa", summary: "Rewrite as PDF/A for archival", run: runPdfa),
+    VerbEntry(name: "mcp", summary: "Run a read-only MCP server over stdio", run: runMcp),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

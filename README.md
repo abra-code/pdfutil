@@ -48,5 +48,6 @@ and repeats are allowed.
 | `watermark` | Stamp a text/image mark (burn-in) or a freeText annotation |
 | `linearize` | Rewrite in linearized "fast web view" form (redraw) |
 | `pdfa` | Rewrite as PDF/A-2B for archival (redraw) |
+| `mcp` | Run a read-only MCP server over stdio (`--root DIR`) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

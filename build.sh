@@ -12,7 +12,7 @@ set -e
 cd "$(dirname "$0")"
 
 min_macos="14.0"
-sources="Sources/main.swift Sources/CLI.swift Sources/PageRange.swift Sources/Output.swift Sources/Core/*.swift Sources/Verbs/*.swift"
+sources="Sources/main.swift Sources/CLI.swift Sources/PageRange.swift Sources/Output.swift Sources/Core/*.swift Sources/Verbs/*.swift Sources/MCP/*.swift"
 
 build_slice() {
     arch="$1"
