@@ -33,6 +33,8 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "frompages", summary: "Build a PDF from images and/or PDFs", run: runFromPages),
     VerbEntry(name: "encrypt", summary: "Add password protection and permissions", run: runEncrypt),
     VerbEntry(name: "decrypt", summary: "Remove password protection", run: runDecrypt),
+    VerbEntry(name: "flatten", summary: "Burn annotations and form fields into pages", run: runFlatten),
+    VerbEntry(name: "reduce", summary: "Recompress/downsample images to shrink a PDF", run: runReduce),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

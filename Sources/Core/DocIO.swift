@@ -91,3 +91,42 @@ func savePDF(_ doc: PDFDocument,
         throw PDFUtilError.processing("failed to save output: \(destPath)")
     }
 }
+
+// The overwrite policy for the redraw verbs, which produce their output through a
+// CGPDFContext rather than PDFDocument.write. `body` receives a sibling temp URL
+// to write into; on success it is atomically put in place (replacing an existing
+// file only when force allows it), and on any error the temp file is removed.
+func writeAtomically(to output: String?,
+                     force: Bool,
+                     inPlaceOf inputPath: String,
+                     _ body: (URL) throws -> Void) throws {
+    let fm = FileManager.default
+    let destPath = output ?? inputPath
+    let destURL = URL(fileURLWithPath: destPath).standardizedFileURL
+    let destExists = fm.fileExists(atPath: destURL.path)
+
+    if output != nil && destExists && !force {
+        throw PDFUtilError.processing("output exists: \(destPath) (use --force to overwrite)")
+    }
+
+    let dir = destURL.deletingLastPathComponent()
+    let tmpURL = dir.appendingPathComponent(".pdfutil-" + UUID().uuidString + ".pdf")
+
+    do {
+        try body(tmpURL)
+    } catch {
+        try? fm.removeItem(at: tmpURL)
+        throw error
+    }
+
+    do {
+        if destExists {
+            _ = try fm.replaceItemAt(destURL, withItemAt: tmpURL)
+        } else {
+            try fm.moveItem(at: tmpURL, to: destURL)
+        }
+    } catch {
+        try? fm.removeItem(at: tmpURL)
+        throw PDFUtilError.processing("failed to save output: \(destPath)")
+    }
+}

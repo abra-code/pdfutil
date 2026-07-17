@@ -41,5 +41,7 @@ and repeats are allowed.
 | `frompages` | Build a PDF from images and/or PDFs (img2pdf, mixed inputs) |
 | `encrypt` | Add a user/owner password and permission flags (`--allow`) |
 | `decrypt` | Remove password protection (re-save unencrypted) |
+| `flatten` | Burn annotations and form fields into the page content |
+| `reduce` | Recompress/downsample images to shrink a PDF (redraw) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

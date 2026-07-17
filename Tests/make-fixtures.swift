@@ -142,6 +142,35 @@ do {
     doc.write(to: out("form.pdf"))
 }
 
+// form-filled.pdf - a one-page form with the "name" text field pre-filled
+// ("Alice"), so the flatten test can confirm the value burns into the page.
+do {
+    let data = NSMutableData()
+    guard let consumer = CGDataConsumer(data: data as CFMutableData) else {
+        fatalError("cannot create data consumer")
+    }
+    var box = letter
+    guard let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else {
+        fatalError("cannot create form base context")
+    }
+    ctx.beginPDFPage(nil)
+    drawLine(ctx, "Filled form fixture", x: 72, y: 720, size: 18)
+    ctx.endPDFPage()
+    ctx.closePDF()
+
+    guard let doc = PDFDocument(data: data as Data), let page = doc.page(at: 0) else {
+        fatalError("cannot build filled-form base document")
+    }
+    let name = PDFAnnotation(bounds: CGRect(x: 72, y: 600, width: 200, height: 24),
+                             forType: .widget, withProperties: nil)
+    name.widgetFieldType = .text
+    name.fieldName = "name"
+    name.widgetStringValue = "Alice"
+    page.addAnnotation(name)
+
+    doc.write(to: out("form-filled.pdf"))
+}
+
 // locked.pdf - text.pdf saved with a user and owner password.
 do {
     guard let doc = PDFDocument(url: out("text.pdf")) else { fatalError("reopen text.pdf") }
