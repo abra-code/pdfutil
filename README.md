@@ -43,5 +43,6 @@ and repeats are allowed.
 | `decrypt` | Remove password protection (re-save unencrypted) |
 | `flatten` | Burn annotations and form fields into the page content |
 | `reduce` | Recompress/downsample images to shrink a PDF (redraw) |
+| `ocr` | Recognize text via Vision; print it or embed a searchable layer |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
