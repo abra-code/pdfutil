@@ -38,6 +38,8 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "ocr", summary: "Recognize text (Vision), print or embed a layer", run: runOcr),
     VerbEntry(name: "forms", summary: "List, fill, or flatten AcroForm fields", run: runForms),
     VerbEntry(name: "watermark", summary: "Stamp a text or image watermark", run: runWatermark),
+    VerbEntry(name: "linearize", summary: "Rewrite for fast web view (linearized)", run: runLinearize),
+    VerbEntry(name: "pdfa", summary: "Rewrite as PDF/A for archival", run: runPdfa),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

@@ -46,5 +46,7 @@ and repeats are allowed.
 | `ocr` | Recognize text via Vision; print it or embed a searchable layer |
 | `forms` | List, `--fill` (from JSON), or `--flatten` AcroForm fields |
 | `watermark` | Stamp a text/image mark (burn-in) or a freeText annotation |
+| `linearize` | Rewrite in linearized "fast web view" form (redraw) |
+| `pdfa` | Rewrite as PDF/A-2B for archival (redraw) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
