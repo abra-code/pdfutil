@@ -37,5 +37,6 @@ and repeats are allowed.
 | `rotate` | Rotate pages by 90/180/270/-90, lossless |
 | `crop` | Set a page box by `--rect` or `--margins` |
 | `metadata` | Read/`--set`/`--delete`/`--strip` Info-dictionary attributes |
+| `render` | Rasterize pages to PNG/JPEG/TIFF/HEIC at a DPI or scale |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

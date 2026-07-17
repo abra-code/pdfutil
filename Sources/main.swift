@@ -29,6 +29,7 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "rotate", summary: "Rotate pages by 90/180/270/-90", run: runRotate),
     VerbEntry(name: "crop", summary: "Set a page box by rect or margins", run: runCrop),
     VerbEntry(name: "metadata", summary: "Read, set, delete, or strip metadata", run: runMetadata),
+    VerbEntry(name: "render", summary: "Rasterize pages to PNG/JPEG/TIFF/HEIC", run: runRender),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

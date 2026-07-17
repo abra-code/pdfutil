@@ -3,6 +3,16 @@
 
 import Foundation
 
+// Parse a strictly-positive, finite number for an option value (--dpi, --scale).
+// Finiteness matters: Double("inf") is > 0 and would later trap in an Int() cast
+// or drive a runaway allocation.
+func positiveDouble(_ raw: String, option: String) throws -> Double {
+    guard let value = Double(raw), value > 0, value.isFinite else {
+        throw PDFUtilError.usage("\(option) requires a positive number (got '\(raw)')")
+    }
+    return value
+}
+
 // Options shared by many verbs, parsed identically wherever they appear.
 struct CommonOptions {
     var output: String?
