@@ -44,5 +44,6 @@ and repeats are allowed.
 | `flatten` | Burn annotations and form fields into the page content |
 | `reduce` | Recompress/downsample images to shrink a PDF (redraw) |
 | `ocr` | Recognize text via Vision; print it or embed a searchable layer |
+| `forms` | List, `--fill` (from JSON), or `--flatten` AcroForm fields |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
