@@ -39,5 +39,7 @@ and repeats are allowed.
 | `metadata` | Read/`--set`/`--delete`/`--strip` Info-dictionary attributes |
 | `render` | Rasterize pages to PNG/JPEG/TIFF/HEIC at a DPI or scale |
 | `frompages` | Build a PDF from images and/or PDFs (img2pdf, mixed inputs) |
+| `encrypt` | Add a user/owner password and permission flags (`--allow`) |
+| `decrypt` | Remove password protection (re-save unencrypted) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

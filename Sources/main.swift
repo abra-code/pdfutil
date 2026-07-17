@@ -31,6 +31,8 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "metadata", summary: "Read, set, delete, or strip metadata", run: runMetadata),
     VerbEntry(name: "render", summary: "Rasterize pages to PNG/JPEG/TIFF/HEIC", run: runRender),
     VerbEntry(name: "frompages", summary: "Build a PDF from images and/or PDFs", run: runFromPages),
+    VerbEntry(name: "encrypt", summary: "Add password protection and permissions", run: runEncrypt),
+    VerbEntry(name: "decrypt", summary: "Remove password protection", run: runDecrypt),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

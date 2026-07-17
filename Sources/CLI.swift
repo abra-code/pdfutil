@@ -13,6 +13,23 @@ func positiveDouble(_ raw: String, option: String) throws -> Double {
     return value
 }
 
+// Read a password from standard input (the --password-stdin family), so it never
+// appears in the process argument list where `ps` could show it. Consumes all of
+// stdin and strips a single trailing newline, matching `printf pw | tool` and
+// `echo pw | tool`. An empty read is an error (usually a missing pipe).
+func readPasswordFromStdin(option: String) throws -> String {
+    let data = FileHandle.standardInput.readDataToEndOfFile()
+    guard var password = String(data: data, encoding: .utf8) else {
+        throw PDFUtilError.usage("\(option): standard input is not valid UTF-8")
+    }
+    if password.hasSuffix("\n") { password.removeLast() }
+    if password.hasSuffix("\r") { password.removeLast() }
+    guard !password.isEmpty else {
+        throw PDFUtilError.usage("\(option): no password read from standard input")
+    }
+    return password
+}
+
 // Options shared by many verbs, parsed identically wherever they appear.
 struct CommonOptions {
     var output: String?
