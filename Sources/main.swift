@@ -37,6 +37,7 @@ let gVerbs: [VerbEntry] = [
     VerbEntry(name: "reduce", summary: "Recompress/downsample images to shrink a PDF", run: runReduce),
     VerbEntry(name: "ocr", summary: "Recognize text (Vision), print or embed a layer", run: runOcr),
     VerbEntry(name: "forms", summary: "List, fill, or flatten AcroForm fields", run: runForms),
+    VerbEntry(name: "watermark", summary: "Stamp a text or image watermark", run: runWatermark),
 ]
 
 func printGlobalUsage(to handle: FileHandle) {

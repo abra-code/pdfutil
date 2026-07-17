@@ -45,5 +45,6 @@ and repeats are allowed.
 | `reduce` | Recompress/downsample images to shrink a PDF (redraw) |
 | `ocr` | Recognize text via Vision; print it or embed a searchable layer |
 | `forms` | List, `--fill` (from JSON), or `--flatten` AcroForm fields |
+| `watermark` | Stamp a text/image mark (burn-in) or a freeText annotation |
 
 Run `pdfutil <verb> --help` for a specific verb's options.

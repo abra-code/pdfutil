@@ -39,6 +39,7 @@ struct PageInfo: Codable {
     let cropBox: Box?       // present only when it differs from the media box
     let rotation: Int
     let hasText: Bool
+    let annotations: Int    // count of page annotations (widgets, marks, links...)
 }
 
 struct DocInfo: Codable {
@@ -103,7 +104,8 @@ func gatherInfo(path: String, doc: PDFDocument, cgDoc: CGPDFDocument) -> DocInfo
                 mediaBox: Box(media),
                 cropBox: crop.equalTo(media) ? nil : Box(crop),
                 rotation: page.rotation,
-                hasText: hasText))
+                hasText: hasText,
+                annotations: page.annotations.count))
         }
     }
 
@@ -156,6 +158,7 @@ func formatInfo(_ info: DocInfo) -> String {
         if let c = p.cropBox { line += ", crop \(dim(c.width))x\(dim(c.height)) pt" }
         if p.rotation != 0 { line += ", rotation \(p.rotation)" }
         line += p.hasText ? ", text" : ", no text"
+        if p.annotations > 0 { line += ", \(p.annotations) annotations" }
         s += line + "\n"
     }
     return s
