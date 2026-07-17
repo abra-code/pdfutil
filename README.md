@@ -51,3 +51,24 @@ and repeats are allowed.
 | `mcp` | Run a read-only MCP server over stdio (`--root DIR`) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
+
+## MCP server mode
+
+`pdfutil mcp --root DIR [--root DIR]...` runs a read-only Model Context Protocol
+server over stdio (newline-delimited JSON-RPC 2.0). It exposes read-only tools -
+`pdf_info`, `pdf_text`, `pdf_search`, `pdf_outline`, `pdf_render`, `pdf_ocr`,
+`pdf_forms_list` - each confined to the `--root` directories. See
+[docs/mcp-tools.md](docs/mcp-tools.md) for the tool schemas.
+
+Client configuration (e.g. an MCP `mcpServers` entry):
+
+```json
+{
+  "mcpServers": {
+    "pdfutil": {
+      "command": "/usr/local/bin/pdfutil",
+      "args": ["mcp", "--root", "/Users/me/Documents"]
+    }
+  }
+}
+```

@@ -58,6 +58,9 @@ func dispatchTool(name: String, arguments: [String: Any], roots: [String]) throw
     case "pdf_text": return try toolPdfText(arguments, roots)
     case "pdf_search": return try toolPdfSearch(arguments, roots)
     case "pdf_outline": return try toolPdfOutline(arguments, roots)
+    case "pdf_render": return try toolPdfRender(arguments, roots)
+    case "pdf_ocr": return try toolPdfOcr(arguments, roots)
+    case "pdf_forms_list": return try toolPdfFormsList(arguments, roots)
     default: return toolError("unknown tool: \(name)")
     }
 }
@@ -163,6 +166,49 @@ func toolDefinitions() -> [[String: Any]] {
         [
             "name": "pdf_outline",
             "description": "Return the document outline (table of contents) as a nested JSON tree.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
+                ],
+                "required": ["path"],
+            ],
+        ],
+        [
+            "name": "pdf_render",
+            "description": "Rasterize a single page to a PNG image. dpi defaults to 150 and is capped at 300.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "page": ["type": "integer", "description": "1-based page number (single page)"],
+                    "dpi": ["type": "integer", "description": "Resolution in DPI (default 150, max 300)"],
+                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
+                ],
+                "required": ["path", "page"],
+            ],
+        ],
+        [
+            "name": "pdf_ocr",
+            "description": "Recognize text with Vision (rasterizes each page). Capped at 50000 characters.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "pages": ["type": "string", "description": "Page range to OCR; default all"],
+                    "languages": [
+                        "type": "array", "items": ["type": "string"],
+                        "description": "BCP-47 language tags (e.g. en-US); omit to auto-detect",
+                    ],
+                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
+                ],
+                "required": ["path"],
+            ],
+        ],
+        [
+            "name": "pdf_forms_list",
+            "description": "List the AcroForm fields (page, name, kind, value, choices, readOnly) as JSON.",
             "inputSchema": [
                 "type": "object",
                 "properties": [
