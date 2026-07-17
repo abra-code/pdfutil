@@ -38,5 +38,6 @@ and repeats are allowed.
 | `crop` | Set a page box by `--rect` or `--margins` |
 | `metadata` | Read/`--set`/`--delete`/`--strip` Info-dictionary attributes |
 | `render` | Rasterize pages to PNG/JPEG/TIFF/HEIC at a DPI or scale |
+| `frompages` | Build a PDF from images and/or PDFs (img2pdf, mixed inputs) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
