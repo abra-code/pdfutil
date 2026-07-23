@@ -7,7 +7,7 @@ binary produced by a plain `swiftc` invocation.
 
 ## Build
 
-    ./build.sh        # produces ./pdfutil (universal, ad-hoc signed)
+    ./build.sh        # produces build/pdfutil (universal, ad-hoc signed)
     ./test.sh         # builds, generates fixtures, runs the smoke tests
 
 Deployment target: macOS 14.0.

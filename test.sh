@@ -11,7 +11,7 @@ cd "$(dirname "$0")"
 
 FIX="Tests/fixtures"
 TMP="Tests/tmp"
-PDFUTIL="./pdfutil"
+PDFUTIL="./build/pdfutil"
 
 if [ ! -d "$FIX" ]; then
     echo "Generating fixtures..."

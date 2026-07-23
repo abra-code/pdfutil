@@ -5,7 +5,7 @@
 # -framework flags are needed. Deployment target is macOS 14.0 for both slices.
 #
 # Usage:
-#   ./build.sh        # produces ./pdfutil (universal, ad-hoc signed)
+#   ./build.sh        # produces build/pdfutil (universal, ad-hoc signed)
 
 set -e
 
@@ -14,6 +14,8 @@ cd "$(dirname "$0")"
 min_macos="14.0"
 sources="Sources/main.swift Sources/CLI.swift Sources/PageRange.swift Sources/Output.swift Sources/Core/*.swift Sources/Verbs/*.swift Sources/MCP/*.swift"
 
+mkdir -p build
+
 build_slice() {
     arch="$1"
     echo "Building $arch slice..."
@@ -21,17 +23,17 @@ build_slice() {
     xcrun -sdk macosx swiftc -O \
         -target "${arch}-apple-macos${min_macos}" \
         $sources \
-        -o "pdfutil-$arch"
+        -o "build/pdfutil-$arch"
 }
 
 build_slice x86_64
 build_slice arm64
 
 echo "Creating universal binary..."
-lipo -create -output pdfutil pdfutil-x86_64 pdfutil-arm64
-rm -f pdfutil-x86_64 pdfutil-arm64
-lipo -info pdfutil
+lipo -create -output build/pdfutil build/pdfutil-x86_64 build/pdfutil-arm64
+rm -f build/pdfutil-x86_64 build/pdfutil-arm64
+lipo -info build/pdfutil
 
-codesign -s - pdfutil
+codesign -s - build/pdfutil
 
 echo "Done."
