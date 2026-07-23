@@ -1,6 +1,8 @@
 // MCP/Tools.swift - the MCP tool definitions and dispatch. Each tool is a thin
 // adapter over an existing Core function, returning MCP content items. All tools
-// are read-only and take a `path` confined to the configured roots.
+// are read-only and take a `path` confined to the configured roots. No tool
+// accepts a password: passwords must not travel through the agent, so encrypted
+// PDFs are CLI-only (dispatchTool refuses the param outright).
 
 import Foundation
 
@@ -53,6 +55,9 @@ private let kMaxTextCharacters = 50_000
 // MARK: - Dispatch
 
 func dispatchTool(name: String, arguments: [String: Any], roots: [String]) throws -> [String: Any] {
+    if arguments["password"] != nil {
+        return toolError("'password' is not accepted over MCP: passwords must not pass through the agent. Use the pdfutil CLI to work with encrypted PDFs.")
+    }
     switch name {
     case "pdf_info": return try toolPdfInfo(arguments, roots)
     case "pdf_text": return try toolPdfText(arguments, roots)
@@ -69,15 +74,15 @@ func dispatchTool(name: String, arguments: [String: Any], roots: [String]) throw
 
 private func toolPdfInfo(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
-    let cgDoc = try openCGPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
+    let cgDoc = try openCGPDF(path: path, password: nil)
     let info = gatherInfo(path: path, doc: doc, cgDoc: cgDoc)
     return toolText(try encodeJSONString(info))
 }
 
 private func toolPdfText(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
     let pages = try resolvePages(optionalString(arguments, "pages"), pageCount: doc.pageCount)
     let text = try extractText(doc: doc, pages: pages, pageBreaks: false)
     if text.count > kMaxTextCharacters {
@@ -89,7 +94,7 @@ private func toolPdfText(_ arguments: [String: Any], _ roots: [String]) throws -
 private func toolPdfSearch(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
     let query = try requiredString(arguments, "query")
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
     let pages = try resolvePages(optionalString(arguments, "pages"), pageCount: doc.pageCount)
     let maxResults = max(1, optionalInt(arguments, "maxResults") ?? 50)
     let caseSensitive = (arguments["caseSensitive"] as? Bool) ?? false
@@ -107,7 +112,7 @@ private func toolPdfSearch(_ arguments: [String: Any], _ roots: [String]) throws
 
 private func toolPdfOutline(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
     guard let nodes = buildOutline(doc: doc) else {
         return toolText("(no outline)")
     }
@@ -129,7 +134,6 @@ func toolDefinitions() -> [[String: Any]] {
                 "type": "object",
                 "properties": [
                     "path": pathProperty(),
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path"],
             ],
@@ -142,7 +146,6 @@ func toolDefinitions() -> [[String: Any]] {
                 "properties": [
                     "path": pathProperty(),
                     "pages": ["type": "string", "description": "Page range, e.g. 1-5,9 (1-based); default all"],
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path"],
             ],
@@ -158,7 +161,6 @@ func toolDefinitions() -> [[String: Any]] {
                     "pages": ["type": "string", "description": "Page range to search; default all"],
                     "maxResults": ["type": "integer", "description": "Maximum matches to return (default 50)"],
                     "caseSensitive": ["type": "boolean", "description": "Case-sensitive match (default false)"],
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path", "query"],
             ],
@@ -170,7 +172,6 @@ func toolDefinitions() -> [[String: Any]] {
                 "type": "object",
                 "properties": [
                     "path": pathProperty(),
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path"],
             ],
@@ -184,7 +185,6 @@ func toolDefinitions() -> [[String: Any]] {
                     "path": pathProperty(),
                     "page": ["type": "integer", "description": "1-based page number (single page)"],
                     "dpi": ["type": "integer", "description": "Resolution in DPI (default 150, max 300)"],
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path", "page"],
             ],
@@ -201,7 +201,6 @@ func toolDefinitions() -> [[String: Any]] {
                         "type": "array", "items": ["type": "string"],
                         "description": "BCP-47 language tags (e.g. en-US); omit to auto-detect",
                     ],
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path"],
             ],
@@ -213,7 +212,6 @@ func toolDefinitions() -> [[String: Any]] {
                 "type": "object",
                 "properties": [
                     "path": pathProperty(),
-                    "password": ["type": "string", "description": "Password for an encrypted PDF"],
                 ],
                 "required": ["path"],
             ],

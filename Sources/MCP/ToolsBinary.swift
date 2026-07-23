@@ -30,7 +30,7 @@ func toolPdfRender(_ arguments: [String: Any], _ roots: [String]) throws -> [Str
     guard let page1 = optionalInt(arguments, "page") else {
         throw PDFUtilError.usage("missing or invalid 'page' (a single 1-based page number)")
     }
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
     guard page1 >= 1, page1 <= doc.pageCount, let page = doc.page(at: page1 - 1) else {
         throw PDFUtilError.usage("page \(page1) out of range (1-\(doc.pageCount))")
     }
@@ -47,7 +47,7 @@ func toolPdfRender(_ arguments: [String: Any], _ roots: [String]) throws -> [Str
 // pdf_text.
 func toolPdfOcr(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
     let pages = try resolvePages(optionalString(arguments, "pages"), pageCount: doc.pageCount)
         ?? Array(0..<doc.pageCount)
     let languages = (arguments["languages"] as? [String]) ?? []
@@ -62,6 +62,6 @@ func toolPdfOcr(_ arguments: [String: Any], _ roots: [String]) throws -> [String
 // pdf_forms_list: list the AcroForm fields as JSON.
 func toolPdfFormsList(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
-    let doc = try openPDF(path: path, password: optionalString(arguments, "password"))
+    let doc = try openPDF(path: path, password: nil)
     return toolText(try encodeJSONString(gatherFormFields(doc)))
 }

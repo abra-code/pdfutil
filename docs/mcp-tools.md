@@ -15,14 +15,20 @@ reserved for protocol problems: `-32700` parse, `-32600` invalid request,
 Caps: `pdf_text` and `pdf_ocr` cap their output at 50000 characters (narrow with
 `pages`); `pdf_render` caps `dpi` at 300.
 
+Encrypted PDFs: no tool accepts a password, by design - passwords must not
+travel through the agent (they would sit in model context and host logs in
+clear text). A call that supplies a `password` argument is refused with a tool
+error, and a password-protected file reports itself as such. Decrypt first with
+the pdfutil CLI (`pdfutil decrypt --password-stdin`), which keeps the password
+out of the agent loop.
+
 ---
 
 ## `pdf_info`
 
 ```json
 {
-  "path":     "<string>",   // required; a PDF under an allowed root
-  "password": "<string>"    // optional; for an encrypted PDF
+  "path": "<string>"   // required; a PDF under an allowed root
 }
 ```
 
@@ -36,9 +42,8 @@ count).
 
 ```json
 {
-  "path":     "<string>",   // required
-  "pages":    "<string>",   // optional page range, e.g. "1-5,9" (1-based); default all
-  "password": "<string>"    // optional
+  "path":  "<string>",   // required
+  "pages": "<string>"    // optional page range, e.g. "1-5,9" (1-based); default all
 }
 ```
 
@@ -55,8 +60,7 @@ returns an `isError` item asking to narrow `pages`.
   "query":         "<string>",   // required; text to find
   "pages":         "<string>",   // optional page range; default all
   "maxResults":    <integer>,    // optional; default 50
-  "caseSensitive": <boolean>,    // optional; default false
-  "password":      "<string>"    // optional
+  "caseSensitive": <boolean>     // optional; default false
 }
 ```
 
@@ -69,8 +73,7 @@ bounds}`. When more than `maxResults` matched, a trailing note reports the total
 
 ```json
 {
-  "path":     "<string>",   // required
-  "password": "<string>"    // optional
+  "path": "<string>"   // required
 }
 ```
 
@@ -83,10 +86,9 @@ children}`, or `(no outline)`.
 
 ```json
 {
-  "path":     "<string>",   // required
-  "page":     <integer>,    // required; a single 1-based page number
-  "dpi":      <integer>,    // optional; default 150, capped at 300
-  "password": "<string>"    // optional
+  "path": "<string>",   // required
+  "page": <integer>,    // required; a single 1-based page number
+  "dpi":  <integer>     // optional; default 150, capped at 300
 }
 ```
 
@@ -101,8 +103,7 @@ mimeType:"image/png"}`.
 {
   "path":      "<string>",           // required
   "pages":     "<string>",           // optional page range; default all
-  "languages": ["<string>", ...],    // optional BCP-47 tags (e.g. "en-US"); omit to auto-detect
-  "password":  "<string>"            // optional
+  "languages": ["<string>", ...]     // optional BCP-47 tags (e.g. "en-US"); omit to auto-detect
 }
 ```
 
@@ -115,8 +116,7 @@ rasterized at 300 dpi). Over 50000 characters returns an `isError` item.
 
 ```json
 {
-  "path":     "<string>",   // required
-  "password": "<string>"    // optional
+  "path": "<string>"   // required
 }
 ```
 
