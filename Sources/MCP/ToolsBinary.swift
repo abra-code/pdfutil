@@ -27,7 +27,7 @@ private func encodePNGData(_ image: CGImage) throws -> Data {
 // pdf_render: rasterize one page to PNG and return it as a base64 image item.
 func toolPdfRender(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
-    guard let page1 = optionalInt(arguments, "page") else {
+    guard let page1 = try optionalInt(arguments, "page") else {
         throw PDFUtilError.usage("missing or invalid 'page' (a single 1-based page number)")
     }
     let doc = try openPDF(path: path, password: nil)
@@ -35,7 +35,7 @@ func toolPdfRender(_ arguments: [String: Any], _ roots: [String]) throws -> [Str
         throw PDFUtilError.usage("page \(page1) out of range (1-\(doc.pageCount))")
     }
     // dpi default 150, capped at 300 for an MCP payload.
-    let requested = Double(optionalInt(arguments, "dpi") ?? 150)
+    let requested = Double(try optionalInt(arguments, "dpi") ?? 150)
     let dpi = min(kMaxRenderDPI, max(1, requested))
 
     let image = try renderPageToImage(page, dpi: dpi, transparent: false)
@@ -48,7 +48,7 @@ func toolPdfRender(_ arguments: [String: Any], _ roots: [String]) throws -> [Str
 func toolPdfOcr(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
     let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
     let doc = try openPDF(path: path, password: nil)
-    let pages = try resolvePages(optionalString(arguments, "pages"), pageCount: doc.pageCount)
+    let pages = try resolvePages(try optionalString(arguments, "pages"), pageCount: doc.pageCount)
         ?? Array(0..<doc.pageCount)
     let languages = (arguments["languages"] as? [String]) ?? []
 

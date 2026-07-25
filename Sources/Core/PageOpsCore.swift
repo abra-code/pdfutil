@@ -23,6 +23,16 @@ func documentFromPages(_ source: PDFDocument, indices: [Int]) throws -> PDFDocum
     return out
 }
 
+// Remove the given pages from the document in place (duplicates tolerated).
+// Removing every page is refused: an empty PDF is not writable.
+func deletePages(doc: PDFDocument, indices: [Int]) throws {
+    let toDelete = Set(indices).sorted(by: >)   // descending so earlier removals do not shift
+    guard toDelete.count < doc.pageCount else {
+        throw PDFUtilError.processing("cannot delete every page")
+    }
+    for idx in toDelete { autoreleasepool { doc.removePage(at: idx) } }
+}
+
 // One merge input: a file and an optional page range that binds to it.
 struct MergeInput {
     let path: String

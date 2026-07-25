@@ -59,11 +59,7 @@ func runPages(_ args: [String]) throws {
         try savePDF(out, to: common.output, force: common.force, inPlaceOf: path)
     } else if let spec = deleteSpec {
         let indices = try PageRange.parse(spec, pageCount: doc.pageCount)
-        let toDelete = Set(indices).sorted(by: >)   // descending so earlier removals do not shift
-        guard toDelete.count < doc.pageCount else {
-            throw PDFUtilError.processing("cannot delete every page")
-        }
-        for idx in toDelete { autoreleasepool { doc.removePage(at: idx) } }
+        try deletePages(doc: doc, indices: indices)
         try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path)
     }
 }
