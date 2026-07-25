@@ -94,8 +94,7 @@ check("text.pdf" in text(ro, 4), "pdf_list finds the fixtures")
 
 # Session 2: writable server, positive paths.
 w_tools = {t["name"]: t for t in w[2]["result"]["tools"]}
-check(MUTATING & set(w_tools) == {"pdf_merge", "pdf_extract_pages", "pdf_delete_pages", "pdf_rotate", "pdf_metadata_set"},
-      "the Part A mutating tools are advertised with --writable")
+check(MUTATING <= set(w_tools), "the whole mutating tier is advertised with --writable")
 check(w_tools["pdf_merge"]["annotations"]["readOnlyHint"] is False, "pdf_merge readOnlyHint false")
 check(w_tools["pdf_merge"]["annotations"]["destructiveHint"] is False, "pdf_merge destructiveHint false")
 check(w_tools["pdf_merge"]["annotations"]["openWorldHint"] is False, "pdf_merge openWorldHint false")

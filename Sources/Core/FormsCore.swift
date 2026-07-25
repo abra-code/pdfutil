@@ -65,14 +65,8 @@ func formatFormFields(_ fields: [FormField]) -> String {
     return s
 }
 
-// Apply a {fieldName: value} JSON object to the document's widgets. A text/choice
-// value must be a JSON string; a button value must be a JSON bool. An unknown
-// field name is a processing error that lists the available names.
-//
-// A bool sets every widget that shares the field name to that on/off state, which
-// is exactly right for a single checkbox. A multi-widget radio group is not
-// individually selectable this way (a `true` would turn every option on); such
-// groups are out of scope.
+// Read a {fieldName: value} JSON file and apply it to the document's widgets
+// (the forms verb's --fill path).
 func fillForm(doc: PDFDocument, dataPath: String) throws {
     guard let data = FileManager.default.contents(atPath: dataPath) else {
         throw PDFUtilError.usage("cannot read fill data: \(dataPath)")
@@ -81,7 +75,18 @@ func fillForm(doc: PDFDocument, dataPath: String) throws {
     guard let values = object as? [String: Any] else {
         throw PDFUtilError.usage("fill data must be a JSON object of fieldName: value")
     }
+    try applyFormValues(doc: doc, values: values)
+}
 
+// Apply a {fieldName: value} dictionary to the document's widgets. A text/choice
+// value must be a string; a button value must be a bool. An unknown field name
+// is a processing error that lists the available names.
+//
+// A bool sets every widget that shares the field name to that on/off state, which
+// is exactly right for a single checkbox. A multi-widget radio group is not
+// individually selectable this way (a `true` would turn every option on); such
+// groups are out of scope.
+func applyFormValues(doc: PDFDocument, values: [String: Any]) throws {
     // Index widgets by field name (a field may span several widgets, e.g. radios).
     var widgets: [String: [PDFAnnotation]] = [:]
     for i in 0..<doc.pageCount {
@@ -100,10 +105,13 @@ func fillForm(doc: PDFDocument, dataPath: String) throws {
         }
         for annotation in targets {
             if annotation.widgetFieldType == .button {
-                guard let on = value as? Bool else {
+                // Strictly a JSON true/false: an NSNumber 0/1 bridges to Bool,
+                // but accepting it would blur the string/bool distinction the
+                // field kinds rely on.
+                guard let n = value as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() else {
                     throw PDFUtilError.usage("field '\(name)' is a button; value must be true or false")
                 }
-                annotation.buttonWidgetState = on ? .onState : .offState
+                annotation.buttonWidgetState = n.boolValue ? .onState : .offState
             } else {
                 guard let string = value as? String else {
                     throw PDFUtilError.usage("field '\(name)' is a text/choice field; value must be a string")

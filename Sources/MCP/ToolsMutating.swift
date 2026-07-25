@@ -18,6 +18,9 @@ func dispatchMutatingTool(name: String, arguments: [String: Any], roots: [String
     case "pdf_delete_pages": return try toolPdfDeletePages(arguments, roots)
     case "pdf_rotate": return try toolPdfRotate(arguments, roots)
     case "pdf_metadata_set": return try toolPdfMetadataSet(arguments, roots)
+    case "pdf_forms_fill": return try toolPdfFormsFill(arguments, roots)
+    case "pdf_watermark": return try toolPdfWatermark(arguments, roots)
+    case "pdf_reduce": return try toolPdfReduce(arguments, roots)
     default: return nil
     }
 }
@@ -163,6 +166,95 @@ private func toolPdfMetadataSet(_ arguments: [String: Any], _ roots: [String]) t
     return try mutationResult(output)
 }
 
+// MARK: - Part B: forms, watermark, reduce
+
+private func toolPdfFormsFill(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
+    let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
+    let output = try resolveOutputPath(try requiredString(arguments, "output"), roots: roots)
+    guard let fields = arguments["fields"] as? [String: Any], !fields.isEmpty else {
+        throw PDFUtilError.usage("'fields' must be a non-empty object of fieldName: value")
+    }
+    let flatten = try optionalBool(arguments, "flatten") ?? false
+
+    let doc = try openPDF(path: path, password: nil)
+    try applyFormValues(doc: doc, values: fields)
+    try saveForm(doc: doc, output: output, force: false, inPlaceOf: path, flatten: flatten)
+    return try mutationResult(output)
+}
+
+private func toolPdfWatermark(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
+    let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
+    let output = try resolveOutputPath(try requiredString(arguments, "output"), roots: roots)
+
+    let text = try optionalString(arguments, "text")
+    let imageRaw = try optionalString(arguments, "imagePath")
+    guard (text == nil) != (imageRaw == nil) else {
+        throw PDFUtilError.usage("provide exactly one of 'text' or 'imagePath'")
+    }
+    var spec = WatermarkSpec()
+    spec.text = text
+    if let imageRaw = imageRaw {
+        // The watermark image is an input like any other: sandbox-checked.
+        spec.imagePath = try resolveAllowedPath(imageRaw, roots: roots)
+    }
+    if let position = try optionalString(arguments, "position") {
+        guard let p = WatermarkPosition(rawValue: position) else {
+            throw PDFUtilError.usage("'position' must be one of center, top-left, top-right, bottom-left, bottom-right")
+        }
+        spec.position = p
+    }
+    if let angle = try optionalDouble(arguments, "angle") { spec.rotateMark = angle }
+    if let opacity = try optionalDouble(arguments, "opacity") {
+        guard opacity >= 0, opacity <= 1 else {
+            throw PDFUtilError.usage("'opacity' must be between 0 and 1")
+        }
+        spec.opacity = opacity
+    }
+    spec.annotation = try optionalBool(arguments, "annotation") ?? false
+    guard !(spec.annotation && spec.text == nil) else {
+        throw PDFUtilError.usage("'annotation' requires 'text' (an image watermark must be burned in)")
+    }
+
+    let doc = try openPDF(path: path, password: nil)
+    let pages = try resolvePages(try optionalString(arguments, "pages"), pageCount: doc.pageCount)
+    if spec.annotation {
+        try watermarkAnnotation(doc: doc, output: output, force: false, pages: pages,
+                                spec: spec, inPlaceOf: path)
+    } else {
+        try watermarkBurnIn(path: path, output: output, force: false, password: nil,
+                            pages: pages, spec: spec)
+    }
+    return try mutationResult(output)
+}
+
+private func toolPdfReduce(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
+    let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
+    let output = try resolveOutputPath(try requiredString(arguments, "output"), roots: roots)
+
+    var options = ReduceOptions()
+    if let quality = try optionalInt(arguments, "quality") {
+        guard (1...100).contains(quality) else {
+            throw PDFUtilError.usage("'quality' must be between 1 and 100")
+        }
+        options.quality = quality
+    }
+    if let dpi = try optionalInt(arguments, "dpi") {
+        guard dpi >= 0 else {
+            throw PDFUtilError.usage("'dpi' must be >= 0 (0 disables downsampling)")
+        }
+        options.dpi = dpi
+    }
+    options.gray = try optionalBool(arguments, "gray") ?? false
+    // The Gray Tone system filter replaces the recompress/downsample filter
+    // entirely; a combination would silently drop quality/dpi, so refuse it.
+    if options.gray, presentValue(arguments, "quality") != nil || presentValue(arguments, "dpi") != nil {
+        throw PDFUtilError.usage("'gray' cannot be combined with 'quality' or 'dpi' (the grayscale filter replaces recompression)")
+    }
+
+    try reduceDocument(path: path, output: output, force: false, password: nil, options: options)
+    return try mutationResult(output)
+}
+
 // MARK: - Tool schemas
 
 func outputProperty() -> [String: Any] {
@@ -256,6 +348,57 @@ func mutatingToolDefinitions() -> [[String: Any]] {
                         "items": ["type": "string"],
                         "description": "Attribute keys to remove",
                     ],
+                    "output": outputProperty(),
+                ],
+                "required": ["path", "output"],
+            ],
+        ],
+        [
+            "name": "pdf_forms_fill",
+            "description": "Write a new PDF with AcroForm fields filled. Structure-preserving; with 'flatten' the values burn into the page and the interactive fields are dropped. Text/choice values are strings; checkbox values are booleans.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "fields": [
+                        "type": "object",
+                        "description": "Values to fill, as fieldName: value (string for text/choice, boolean for a checkbox); list names first with pdf_forms_list",
+                    ],
+                    "flatten": ["type": "boolean", "description": "Burn the values into the page content and drop the interactive fields (default false)"],
+                    "output": outputProperty(),
+                ],
+                "required": ["path", "fields", "output"],
+            ],
+        ],
+        [
+            "name": "pdf_watermark",
+            "description": "Write a new PDF with a text or image watermark on the selected pages. The default burn-in redraws the document, so the output loses annotations, links, outline, and form fields; 'annotation': true adds a structure-preserving text annotation instead (axis-aligned, text only).",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "text": ["type": "string", "description": "Watermark text (exactly one of 'text' or 'imagePath')"],
+                    "imagePath": ["type": "string", "description": "Watermark image file, under an allowed root (exactly one of 'text' or 'imagePath')"],
+                    "position": ["type": "string", "enum": ["center", "top-left", "top-right", "bottom-left", "bottom-right"], "description": "Anchor on the page (default center)"],
+                    "angle": ["type": "number", "description": "Rotation of the mark in degrees, burn-in only (default 45)"],
+                    "opacity": ["type": "number", "description": "Mark opacity 0-1 (default 0.25)"],
+                    "pages": pagesProperty("Pages to mark, e.g. 1-3 (1-based); default all"),
+                    "annotation": ["type": "boolean", "description": "Add a structure-preserving freeText annotation instead of burning in (text only, default false)"],
+                    "output": outputProperty(),
+                ],
+                "required": ["path", "output"],
+            ],
+        ],
+        [
+            "name": "pdf_reduce",
+            "description": "Write a smaller PDF by recompressing and downsampling raster images. Redraws the document: the output loses annotations, links, outline, and form fields.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "quality": ["type": "integer", "description": "JPEG quality 1-100 (default 85)"],
+                    "dpi": ["type": "integer", "description": "Downsample images above this DPI; 0 disables (default 150)"],
+                    "gray": ["type": "boolean", "description": "Convert to grayscale via the system Gray Tone filter; cannot be combined with quality/dpi (default false)"],
                     "output": outputProperty(),
                 ],
                 "required": ["path", "output"],

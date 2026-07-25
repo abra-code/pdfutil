@@ -49,26 +49,34 @@ and repeats are allowed.
 | `watermark` | Stamp a text/image mark (burn-in) or a freeText annotation |
 | `linearize` | Rewrite in linearized "fast web view" form (redraw) |
 | `pdfa` | Rewrite as PDF/A-2B for archival (redraw) |
-| `mcp` | Run a read-only MCP server over stdio (`--root DIR`) |
+| `mcp` | Run an MCP server over stdio (`--root PATH`, `--writable`) |
 
 Run `pdfutil <verb> --help` for a specific verb's options.
 
 ## MCP server mode
 
-`pdfutil mcp --root DIR [--root DIR]...` runs a read-only Model Context Protocol
-server over stdio (newline-delimited JSON-RPC 2.0). It exposes read-only tools -
-`pdf_info`, `pdf_text`, `pdf_search`, `pdf_outline`, `pdf_render`, `pdf_ocr`,
-`pdf_forms_list` - each confined to the `--root` directories. See
-[docs/mcp-tools.md](docs/mcp-tools.md) for the tool schemas.
+`pdfutil mcp --root PATH [--root PATH]...` runs a read-only Model Context
+Protocol server over stdio (newline-delimited JSON-RPC 2.0). It exposes the
+read tools - `pdf_info`, `pdf_text`, `pdf_search`, `pdf_outline`, `pdf_render`,
+`pdf_ocr`, `pdf_forms_list`, `pdf_list` - each confined to the `--root` paths
+(a root may be a directory or a single PDF file). Adding `--writable` also
+serves the mutating tools (`pdf_merge`, `pdf_extract_pages`,
+`pdf_delete_pages`, `pdf_rotate`, `pdf_metadata_set`, `pdf_forms_fill`,
+`pdf_watermark`, `pdf_reduce`) with create-only outputs: every result is a new
+file under a root, and an output path that already exists is refused, so no
+existing file can ever be modified or destroyed through the server. See
+[docs/mcp-tools.md](docs/mcp-tools.md) for the tool schemas and the full
+safety model.
 
-Client configuration (e.g. an MCP `mcpServers` entry):
+Client configuration (e.g. an MCP `mcpServers` entry; point `--root` at a
+narrow working folder, not a broad tree like `~/Documents`):
 
 ```json
 {
   "mcpServers": {
     "pdfutil": {
       "command": "/usr/local/bin/pdfutil",
-      "args": ["mcp", "--root", "/Users/me/Documents"]
+      "args": ["mcp", "--root", "/Users/me/PDFWork", "--writable"]
     }
   }
 }
