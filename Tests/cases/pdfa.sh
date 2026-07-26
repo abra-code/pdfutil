@@ -1,7 +1,5 @@
 # pdfa verb - rewrite as PDF/A (PDF/A-2B via Apple's writer).
 
-QPDF="/Users/tkukielk/Development/QuickPDFApp/QuickPDF.app/Contents/Helpers/qpdf"
-
 # Round-trips the document: page count and text layer are preserved.
 expect_ok "$PDFUTIL" pdfa -o "$TMP/a.pdf" "$FIX/text.pdf"
 expect_grep "pages: 5" "$PDFUTIL" info "$TMP/a.pdf"

@@ -1,7 +1,5 @@
 # flatten verb - burn a filled form's values into the page content.
 
-QPDF="/Users/tkukielk/Development/QuickPDFApp/QuickPDF.app/Contents/Helpers/qpdf"
-
 # Before flattening, the "Alice" value lives in the widget, not the page text.
 expect_nogrep "Alice" "$PDFUTIL" text "$FIX/form-filled.pdf"
 

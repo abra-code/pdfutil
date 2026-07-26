@@ -1,7 +1,5 @@
 # linearize verb - rewrite in linearized ("fast web view") form.
 
-QPDF="/Users/tkukielk/Development/QuickPDFApp/QuickPDF.app/Contents/Helpers/qpdf"
-
 # Round-trips the document: page count and text layer are preserved.
 expect_ok "$PDFUTIL" linearize -o "$TMP/lin.pdf" "$FIX/text.pdf"
 expect_grep "pages: 5" "$PDFUTIL" info "$TMP/lin.pdf"

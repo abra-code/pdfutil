@@ -1,7 +1,5 @@
 # encrypt / decrypt verbs - password round-trip and permission flags.
 
-QPDF="/Users/tkukielk/Development/QuickPDFApp/QuickPDF.app/Contents/Helpers/qpdf"
-
 # Encrypt with a user password; the output cannot be read without it.
 expect_ok "$PDFUTIL" encrypt --user-password secret -o "$TMP/enc.pdf" "$FIX/text.pdf"
 expect_code 2 "$PDFUTIL" text "$TMP/enc.pdf"
@@ -11,12 +9,44 @@ expect_grep "PAGE-1-MARKER" "$PDFUTIL" text --password secret "$TMP/enc.pdf"
 expect_ok "$PDFUTIL" decrypt --password secret -o "$TMP/dec.pdf" "$TMP/enc.pdf"
 expect_grep "PAGE-1-MARKER" "$PDFUTIL" text "$TMP/dec.pdf"
 
-# qpdf confirms the output is unencrypted (guarded on qpdf's presence).
+# Structural check on the raw bytes: the encryption dictionary is required to be
+# unencrypted and outside any object stream, so a byte grep sees it without
+# needing any crypto support. This is the primary assertion - it always runs.
+assert_encrypted() {
+    if ! LC_ALL=C grep -aqE '/Encrypt[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+R' "$1"; then
+        fail "$1: trailer carries no /Encrypt reference"
+    fi
+    if ! LC_ALL=C grep -aqE '/Filter[[:space:]]*/Standard' "$1"; then
+        fail "$1: no standard security handler dictionary"
+    fi
+    if ! LC_ALL=C grep -aqE '/(AESV2|AESV3|V2)' "$1"; then
+        fail "$1: encryption dictionary names no scheme"
+    fi
+}
+assert_not_encrypted() {
+    if LC_ALL=C grep -aqE '/Encrypt[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+R' "$1"; then
+        fail "$1: still carries an /Encrypt reference"
+    fi
+}
+assert_encrypted "$TMP/enc.pdf"
+assert_not_encrypted "$TMP/dec.pdf"
+
+# qpdf cross-checks the same two files (guarded on qpdf's presence). Reporting a
+# file as unencrypted needs no crypto, but opening one does: PDFKit writes V4/R4
+# (AES-128), whose key derivation runs RC4, which lives in OpenSSL's legacy
+# provider. qpdf builds that cannot load that provider refuse R<=4 files
+# outright, so treat that as a skip rather than a failure.
 if [ -x "$QPDF" ]; then
     "$QPDF" --show-encryption "$TMP/dec.pdf" 2>/dev/null | grep -qi "not encrypted" \
         || fail "decrypt output is still encrypted"
-    "$QPDF" --show-encryption --password=secret "$TMP/enc.pdf" 2>/dev/null | grep -qiE "R = |bits" \
-        || fail "encrypt output does not report an encryption scheme"
+    qenc=$("$QPDF" --show-encryption --password=secret "$TMP/enc.pdf" 2>&1 || true)
+    case "$qenc" in
+        *"legacy provider"*)
+            echo "  (skipping qpdf encryption check: no openssl legacy provider)" ;;
+        *)
+            printf '%s\n' "$qenc" | grep -qiE "R = |bits" \
+                || fail "encrypt output does not report an encryption scheme" ;;
+    esac
 fi
 
 # Permissions: a user-password reader is limited to --allow; the owner is not.
