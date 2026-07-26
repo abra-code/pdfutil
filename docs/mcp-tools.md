@@ -32,6 +32,14 @@ add files but never alter or destroy existing data.
 Caps: `pdf_text` and `pdf_ocr` cap their output at 50000 characters (narrow with
 `pages`); `pdf_render` caps `dpi` at 300.
 
+Strict arguments: every schema is closed (`additionalProperties: false`) and the
+server independently refuses any argument a tool does not declare, since a
+client is not obliged to validate. A wrong-typed value is refused the same way.
+Nothing is silently dropped: an ignored argument would make a tool do something
+the agent did not ask for, and - worse - let a call report success for work it
+never performed (an agent passing `output` to a read tool and believing a file
+was written).
+
 Encrypted PDFs: no tool accepts a password, by design - passwords must not
 travel through the agent (they would sit in model context and host logs in
 clear text). A call that supplies a `password` argument is refused with a tool
@@ -112,6 +120,10 @@ children}`, or `(no outline)`.
 **Response:** an `image` content item `{type:"image", data:"<base64>",
 mimeType:"image/png"}`.
 
+The PNG comes back inline. `pdf_render` writes no file and has no `output`
+parameter - passing one is refused, not ignored. To save a PNG to disk, use the
+`pdfutil render -o` CLI.
+
 ---
 
 ## `pdf_ocr`
@@ -162,7 +174,7 @@ without a shell.
 
 ## Mutating tools (`--writable`)
 
-Starting the server with `--writable` adds eight mutating tools. The safety
+Starting the server with `--writable` adds nine mutating tools. The safety
 model, in the order it protects you:
 
 1. **Launch-time opt-in.** Without `--writable` the mutating tools are not
@@ -175,7 +187,10 @@ model, in the order it protects you:
    equivalent of `--force`, so no pre-existing file can ever be modified or
    deleted through the server. Writes are temp-file + atomic move, and the
    move fails rather than replacing anything that appears concurrently.
-3. **Host prompts.** The annotations above tell a conforming host to gate the
+3. **Files, never directories.** The server creates files only. The parent
+   directory of an `output` must already exist; a missing one is a tool error,
+   never an implicit `mkdir -p`. See "Directory policy" below.
+4. **Host prompts.** The annotations above tell a conforming host to gate the
    mutating tools harder than the read tools.
 
 This guarantee is promise and code correctness, not kernel sandboxing: the
@@ -186,9 +201,40 @@ change, but every call adds a new file and there is no delete tool, so a
 looping agent can fill the working folder (and, eventually, the volume) with
 outputs. Point the roots at a dedicated folder you empty yourself.
 
+### Directory policy
+
+**The server creates files, never directories.** The parent directory of every
+`output` must already exist. A call naming a missing directory - say
+`.../PDFWork/temp/page1.png` when `temp/` does not exist - is refused with
+
+```
+output directory does not exist: /.../PDFWork/temp - this server writes files
+but never creates directories; write to a directory that already exists, or ask
+the user to create that one
+```
+
+Nothing is written, and no directory is created. There is no `mkdir` parameter
+and no tool that makes one. The reasons:
+
+- **The root check needs an existing parent.** A path is admitted by
+  canonicalizing its parent (`resolvingSymlinksInPath` realpaths only components
+  that exist) and testing *that* against the roots. With an existing parent the
+  real location is known exactly - symlinks and `..` resolved - before anything
+  is written. Creating the missing components first would mean admitting a path
+  whose true location is unknowable until after the directories exist, which is
+  where sandbox escapes come from.
+- **A typo should cost an error, not a mess.** An agent that mistypes a path
+  gets one refusal, not a tree of stray directories under the user's root.
+
+So the write contract is exactly: *one call creates one new file, in a directory
+you already made.* Create the folders you want the agent to use when you set up
+the root; the agent fills them.
+
 Results: every mutating tool returns a `text` item with
 `{"output": "<path>", "bytes": <n>, "pageCount": <n>}` so the agent can chain
 the next call (the output is immediately readable through the same server).
+`pdf_render_to_file` writes an image rather than a PDF, so it returns
+`{"output", "bytes", "format", "width", "height", "dpi"}` instead.
 
 In-place editing, overwriting, encryption changes (`encrypt`/`decrypt`), and
 multi-file outputs (`split`) stay CLI-only. Encryption is excluded
@@ -313,6 +359,42 @@ links, outline, and form fields. `annotation: true` is structure-preserving
 form fields. `gray` applies the system Gray Tone filter *instead of* the
 recompress/downsample filter, so combining it with `quality` or `dpi` is
 refused.
+
+---
+
+### `pdf_render_to_file`
+
+```json
+{
+  "path":        "<string>",   // required
+  "page":        <integer>,    // required; a single 1-based page number
+  "output":      "<string>",   // required; extension selects the format
+  "dpi":         <integer>,    // optional; default 150, clamped to 600
+  "quality":     <integer>,    // optional; 1-100 for .jpg/.heic (default 85)
+  "transparent": <boolean>     // optional; default false, not for .jpg
+}
+```
+
+The write-tier counterpart of [`pdf_render`](#pdf_render): it saves an image to
+disk instead of returning one inline. Use `pdf_render` when the agent needs to
+*look* at a page, and this when a file must *exist*.
+
+The `output` extension selects the format - `.png`, `.jpg`/`.jpeg`, `.tiff`/
+`.tif`, or `.heic` - and any other extension is refused. There is deliberately
+no `format` parameter: it could contradict the name on disk (`format: "png"`
+writing to `page.jpg`), and that disagreement has no defensible resolution.
+
+`quality` applies only to the lossy formats and is **refused**, not ignored, on
+the others; `transparent` is refused for `.jpg`. `dpi` clamps to 600 - higher
+than `pdf_render`'s 300 cap, since nothing here rides back in the model's
+context, but still bounded so a mistyped `"dpi": 100000` cannot drive a
+multi-gigabyte bitmap.
+
+One call renders one page to one file. A page *range* would mean several output
+files under prefix naming, and the create-only guarantee is exact only while one
+call claims one path; use `pdfutil render` for bulk rasterization.
+
+**Response:** `{"output", "bytes", "format", "width", "height", "dpi"}`.
 
 ---
 

@@ -62,9 +62,11 @@ read tools - `pdf_info`, `pdf_text`, `pdf_search`, `pdf_outline`, `pdf_render`,
 (a root may be a directory or a single PDF file). Adding `--writable` also
 serves the mutating tools (`pdf_merge`, `pdf_extract_pages`,
 `pdf_delete_pages`, `pdf_rotate`, `pdf_metadata_set`, `pdf_forms_fill`,
-`pdf_watermark`, `pdf_reduce`) with create-only outputs: every result is a new
-file under a root, and an output path that already exists is refused, so no
-existing file can ever be modified or destroyed through the server. See
+`pdf_watermark`, `pdf_reduce`, `pdf_render_to_file`) with create-only outputs:
+every result is a new file under a root, and an output path that already exists
+is refused, so no existing file can ever be modified or destroyed through the
+server. The server writes files but never creates directories - an output whose
+parent directory is missing is refused rather than made. See
 [docs/mcp-tools.md](docs/mcp-tools.md) for the tool schemas and the full
 safety model.
 

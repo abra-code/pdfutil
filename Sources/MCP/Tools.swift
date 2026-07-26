@@ -107,9 +107,49 @@ private let kMaxTextCharacters = 50_000
 
 // MARK: - Dispatch
 
+// The accepted property names per tool, derived from the same definitions
+// tools/list advertises, so the accepted set can never drift from the published
+// one. Swift lazily initializes globals, so the definitions are built once.
+private func buildAllowedArgumentKeys(writable: Bool) -> [String: Set<String>] {
+    var map: [String: Set<String>] = [:]
+    for def in toolDefinitions(writable: writable) {
+        guard let name = def["name"] as? String,
+              let schema = def["inputSchema"] as? [String: Any],
+              let properties = schema["properties"] as? [String: Any] else { continue }
+        map[name] = Set(properties.keys)
+    }
+    return map
+}
+
+private let kAllowedKeysReadOnly = buildAllowedArgumentKeys(writable: false)
+private let kAllowedKeysWritable = buildAllowedArgumentKeys(writable: true)
+
+// Refuse an argument the tool does not declare, for the same reason the
+// optional-argument helpers refuse a wrong-typed one: silently dropping it
+// makes the tool do something the agent did not ask for. The failure this
+// prevents is the invented output path - an agent calls a read tool with
+// "output": "/some/where.png", gets a success result, and reports a file it
+// never asked the tool to write. `password` is checked before this so it keeps
+// its more specific message.
+private func rejectUnknownArguments(_ name: String, _ arguments: [String: Any],
+                                    writable: Bool) -> [String: Any]? {
+    guard let accepted = (writable ? kAllowedKeysWritable : kAllowedKeysReadOnly)[name] else {
+        return nil  // unknown tool; the dispatch default reports it
+    }
+    let unknown = arguments.keys.filter { !accepted.contains($0) }.sorted()
+    guard !unknown.isEmpty else { return nil }
+    let plural = unknown.count > 1 ? "s" : ""
+    return toolError("unknown parameter\(plural) for \(name): \(unknown.joined(separator: ", ")). "
+        + "Accepted: \(accepted.sorted().joined(separator: ", ")). "
+        + "The call was refused; nothing was read or written.")
+}
+
 func dispatchTool(name: String, arguments: [String: Any], roots: [String], writable: Bool) throws -> [String: Any] {
     if presentValue(arguments, "password") != nil {
         return toolError("'password' is not accepted over MCP: passwords must not pass through the agent. Use the pdfutil CLI to work with encrypted PDFs.")
+    }
+    if let rejection = rejectUnknownArguments(name, arguments, writable: writable) {
+        return rejection
     }
     switch name {
     case "pdf_info": return try toolPdfInfo(arguments, roots)
@@ -259,21 +299,37 @@ func pathProperty() -> [String: Any] {
 // non-read-only but non-destructive (create-only outputs cannot alter or
 // destroy existing data) and non-idempotent (a repeat call fails because the
 // output now exists). Hosts use these hints to calibrate permission prompts.
+//
+// Every schema is closed with additionalProperties: false, stamped here rather
+// than repeated in each literal so no tool can be added without it. That is the
+// client-side half of the strict-argument rule; dispatchTool enforces the same
+// rule server-side, because a client is not obliged to validate.
 func toolDefinitions(writable: Bool) -> [[String: Any]] {
     var defs = readToolDefinitions().map { def -> [String: Any] in
-        var d = def
+        var d = closeSchema(def)
         d["annotations"] = ["readOnlyHint": true, "openWorldHint": false]
         return d
     }
     if writable {
         defs += mutatingToolDefinitions().map { def -> [String: Any] in
-            var d = def
+            var d = closeSchema(def)
             d["annotations"] = ["readOnlyHint": false, "destructiveHint": false,
                                 "idempotentHint": false, "openWorldHint": false]
             return d
         }
     }
     return defs
+}
+
+// Mark a tool's inputSchema closed so a validating client rejects an argument
+// the tool does not declare.
+private func closeSchema(_ def: [String: Any]) -> [String: Any] {
+    var d = def
+    if var schema = d["inputSchema"] as? [String: Any] {
+        schema["additionalProperties"] = false
+        d["inputSchema"] = schema
+    }
+    return d
 }
 
 private func readToolDefinitions() -> [[String: Any]] {
@@ -329,7 +385,7 @@ private func readToolDefinitions() -> [[String: Any]] {
         ],
         [
             "name": "pdf_render",
-            "description": "Rasterize a single page to a PNG image. dpi defaults to 150 and is capped at 300.",
+            "description": "Rasterize a single page and return the PNG inline as image content. This tool writes no file and takes no output path; to save an image to disk use pdf_render_to_file (a --writable server) or the pdfutil render CLI. dpi defaults to 150 and is capped at 300.",
             "inputSchema": [
                 "type": "object",
                 "properties": [

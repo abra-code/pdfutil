@@ -15,10 +15,12 @@ exactly that file). At least one --root is required.
 
 With --writable the mutating tools (pdf_merge, pdf_extract_pages,
 pdf_delete_pages, pdf_rotate, pdf_metadata_set, pdf_forms_fill,
-pdf_watermark, pdf_reduce) are also served. Every mutating tool writes its
-result to a NEW file under a --root and fails if the output path already
-exists; there is no overwrite option, so no pre-existing file can ever be
-modified or destroyed through the server.
+pdf_watermark, pdf_reduce, pdf_render_to_file) are also served. Every mutating
+tool writes its result to a NEW file under a --root and fails if the output
+path already exists; there is no overwrite option, so no pre-existing file can
+ever be modified or destroyed through the server. The server writes files but
+never creates directories: an output whose parent directory does not exist is
+refused rather than created.
 
 Options:
       --root PATH  Allow access to this directory or PDF file (repeatable, required)

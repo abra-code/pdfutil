@@ -8,6 +8,13 @@
 
 import Foundation
 import PDFKit
+import CoreGraphics
+
+// Rasterizing to a file has no model-context payload cost, so this cap is
+// higher than the inline pdf_render's 300 - but it stays bounded, so an agent
+// typo like "dpi": 100000 cannot drive a multi-gigabyte bitmap. The 30000 px
+// per-side guard in renderPageToImage is the backstop.
+private let kMaxRenderToFileDPI = 600.0
 
 // Route a mutating tool call; nil means the name is not a mutating tool (the
 // caller reports it unknown). Reachable only from a --writable dispatch.
@@ -21,6 +28,7 @@ func dispatchMutatingTool(name: String, arguments: [String: Any], roots: [String
     case "pdf_forms_fill": return try toolPdfFormsFill(arguments, roots)
     case "pdf_watermark": return try toolPdfWatermark(arguments, roots)
     case "pdf_reduce": return try toolPdfReduce(arguments, roots)
+    case "pdf_render_to_file": return try toolPdfRenderToFile(arguments, roots)
     default: return nil
     }
 }
@@ -29,13 +37,28 @@ func dispatchMutatingTool(name: String, arguments: [String: Any], roots: [String
 
 // Admit a path for a new file: the parent directory must exist and canonicalize
 // under one of the roots, the last component must be a plain file name, and
-// nothing may already exist at the joined path. Canonicalization is parent-based
-// because resolvingSymlinksInPath only realpaths components that exist, and the
-// output file must not. The existence check uses attributesOfItem (which does
-// not follow symlinks), so a pre-planted symlink at the name - dangling or
-// pointing anywhere - counts as existing and is refused; FileManager.moveItem
-// in savePDF/writeAtomically is the race backstop, failing rather than
-// replacing anything that appears afterwards.
+// nothing may already exist at the joined path. The existence check uses
+// attributesOfItem (which does not follow symlinks), so a pre-planted symlink at
+// the name - dangling or pointing anywhere - counts as existing and is refused;
+// FileManager.moveItem in savePDF/writeAtomically is the race backstop, failing
+// rather than replacing anything that appears afterwards.
+//
+// DIRECTORY POLICY: this server creates FILES, never DIRECTORIES. The parent
+// directory of every output must already exist; a missing one is a tool error,
+// not something a tool silently fills in with the equivalent of mkdir -p. Two
+// reasons, one structural and one practical:
+//
+//  1. The root check is parent-based, and only works because the parent exists.
+//     resolvingSymlinksInPath realpaths only components that exist, so an
+//     existing parent canonicalizes exactly - symlinks and .. resolved - before
+//     it is tested against the roots. Creating missing components would mean
+//     admitting a path whose real location cannot be known until after the
+//     directories are made, which is precisely where sandbox-escape bugs live.
+//  2. An agent's mistyped path should cost an error message, not a tree of
+//     stray directories scattered through the user's root.
+//
+// The single write sandbox contract is therefore: one call creates one new file
+// at a path whose directory the user already made.
 func resolveOutputPath(_ raw: String, roots: [String]) throws -> String {
     guard !raw.hasSuffix("/") else {
         throw PDFUtilError.usage("output must be a file path, not a directory: \(raw)")
@@ -46,10 +69,14 @@ func resolveOutputPath(_ raw: String, roots: [String]) throws -> String {
         throw PDFUtilError.usage("output must name a file: \(raw)")
     }
 
+    let parentDisplay = url.deletingLastPathComponent().path
     let parent = url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path
     var isDir: ObjCBool = false
-    guard FileManager.default.fileExists(atPath: parent, isDirectory: &isDir), isDir.boolValue else {
-        throw PDFUtilError.processing("output directory does not exist: \(raw)")
+    guard FileManager.default.fileExists(atPath: parent, isDirectory: &isDir) else {
+        throw PDFUtilError.processing("output directory does not exist: \(parentDisplay) - this server writes files but never creates directories; write to a directory that already exists, or ask the user to create that one")
+    }
+    guard isDir.boolValue else {
+        throw PDFUtilError.processing("output parent is not a directory: \(parentDisplay)")
     }
     guard roots.contains(where: { isUnder(parent, root: $0) }) else {
         throw PDFUtilError.processing("output outside allowed roots: \(raw)")
@@ -255,10 +282,86 @@ private func toolPdfReduce(_ arguments: [String: Any], _ roots: [String]) throws
     return try mutationResult(output)
 }
 
+// MARK: - Page rasterization to a file
+
+// The output extension selects the image format, and there is no `format`
+// parameter to disagree with it: a call naming format "png" with output
+// "page.jpg" has no defensible resolution, so the name on disk decides.
+private func imageFormatForOutput(_ output: String) throws -> ImageFormat {
+    switch (output as NSString).pathExtension.lowercased() {
+    case "png": return .png
+    case "jpg", "jpeg": return .jpeg
+    case "tiff", "tif": return .tiff
+    case "heic": return .heic
+    default:
+        throw PDFUtilError.usage("'output' must end in .png, .jpg/.jpeg, .tiff/.tif, or .heic (the extension selects the image format)")
+    }
+}
+
+private struct RenderFileResult: Codable {
+    let output: String
+    let bytes: Int
+    let format: String
+    let width: Int
+    let height: Int
+    let dpi: Int
+}
+
+// Rasterize one page to a NEW image file - the write-tier counterpart of the
+// inline pdf_render, which returns its PNG in the result and touches no disk.
+// Single page per call, like pdf_render: a page range would mean several output
+// files under prefix naming, and the create-only guarantee is exact only when
+// one call claims one path.
+private func toolPdfRenderToFile(_ arguments: [String: Any], _ roots: [String]) throws -> [String: Any] {
+    let path = try resolveAllowedPath(try requiredString(arguments, "path"), roots: roots)
+    let output = try resolveOutputPath(try requiredString(arguments, "output"), roots: roots)
+    let format = try imageFormatForOutput(output)
+
+    guard let page1 = try optionalInt(arguments, "page") else {
+        throw PDFUtilError.usage("missing or invalid 'page' (a single 1-based page number)")
+    }
+    let doc = try openPDF(path: path, password: nil)
+    guard page1 >= 1, page1 <= doc.pageCount, let page = doc.page(at: page1 - 1) else {
+        throw PDFUtilError.usage("page \(page1) out of range (1-\(doc.pageCount))")
+    }
+
+    let dpi = min(kMaxRenderToFileDPI, max(1, Double(try optionalInt(arguments, "dpi") ?? 150)))
+
+    // Refuse quality on a format that ignores it, rather than accept a value
+    // that silently does nothing.
+    let quality = try optionalInt(arguments, "quality") ?? 85
+    if presentValue(arguments, "quality") != nil {
+        guard format.isLossy else {
+            throw PDFUtilError.usage("'quality' applies only to .jpg/.jpeg and .heic outputs")
+        }
+        guard (1...100).contains(quality) else {
+            throw PDFUtilError.usage("'quality' must be between 1 and 100")
+        }
+    }
+    let transparent = try optionalBool(arguments, "transparent") ?? false
+    guard !transparent || format.supportsTransparency else {
+        throw PDFUtilError.usage("'transparent' is not supported for \(format.rawValue)")
+    }
+
+    let image = try renderPageToImage(page, dpi: dpi, transparent: transparent)
+    // Write through the temp-then-move helper so the create-only guarantee
+    // survives a file appearing at the path after resolveOutputPath checked:
+    // moveItem fails rather than replacing it.
+    try writeAtomically(to: output, force: false, inPlaceOf: output) { tmp in
+        try writeCGImage(image, to: tmp, format: format,
+                         quality: Double(quality) / 100.0, dpi: dpi)
+    }
+
+    let bytes = ((try? FileManager.default.attributesOfItem(atPath: output))?[.size] as? Int) ?? 0
+    return toolText(try encodeJSONString(RenderFileResult(
+        output: output, bytes: bytes, format: format.rawValue,
+        width: image.width, height: image.height, dpi: Int(dpi))))
+}
+
 // MARK: - Tool schemas
 
 func outputProperty() -> [String: Any] {
-    ["type": "string", "description": "Path for the new PDF, under an allowed root; must not already exist (outputs are create-only)"]
+    ["type": "string", "description": "Path for the new PDF, under an allowed root. Must not already exist (outputs are create-only), and its parent directory must already exist (this server never creates directories)"]
 }
 
 private func pagesProperty(_ description: String) -> [String: Any] {
@@ -402,6 +505,22 @@ func mutatingToolDefinitions() -> [[String: Any]] {
                     "output": outputProperty(),
                 ],
                 "required": ["path", "output"],
+            ],
+        ],
+        [
+            "name": "pdf_render_to_file",
+            "description": "Rasterize a single page to a NEW image file on disk. The extension of 'output' selects the format. Use this when the image must be saved; pdf_render returns a PNG inline and writes nothing.",
+            "inputSchema": [
+                "type": "object",
+                "properties": [
+                    "path": pathProperty(),
+                    "page": ["type": "integer", "description": "1-based page number (a single page)"],
+                    "output": ["type": "string", "description": "Path for the new image, under an allowed root. Must not already exist (outputs are create-only), and its parent directory must already exist (this server never creates directories). The extension selects the format: .png, .jpg/.jpeg, .tiff/.tif, or .heic"],
+                    "dpi": ["type": "integer", "description": "Resolution in DPI (default 150, max 600)"],
+                    "quality": ["type": "integer", "description": "Lossy quality 1-100 for .jpg/.jpeg and .heic outputs (default 85); refused for other formats"],
+                    "transparent": ["type": "boolean", "description": "Keep the background transparent; not supported for .jpg/.jpeg (default false)"],
+                ],
+                "required": ["path", "page", "output"],
             ],
         ],
     ]
