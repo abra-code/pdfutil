@@ -14,7 +14,7 @@ Options:
       --dpi N          Output resolution in DPI (default 150)
       --scale F        Scale factor instead of --dpi (72 * F DPI)
       --format FMT     png, jpeg, tiff, or heic (default png)
-      --quality N      Lossy quality 1-100 for jpeg/heic (default 85)
+      --quality N      Lossy quality 1-100; jpeg/heic only (default 85)
       --transparent    Keep the background transparent (png/tiff/heic only)
   -o, --output PATH    Output file (single page) or filename prefix
       --password PW    Password for an encrypted PDF
@@ -30,6 +30,7 @@ func runRender(_ args: [String]) throws {
     var scale: Double?
     var format = ImageFormat.png
     var quality = 85
+    var qualityGiven = false
     var transparent = false
     var scanner = ArgScanner(verb: "render", args)
 
@@ -40,7 +41,7 @@ func runRender(_ args: [String]) throws {
         case "--dpi": dpi = try positiveDouble(try scanner.value(a), option: a)
         case "--scale": scale = try positiveDouble(try scanner.value(a), option: a)
         case "--format": format = try parseImageFormat(try scanner.value(a))
-        case "--quality": quality = try scanner.intValue(a)
+        case "--quality": quality = try scanner.intValue(a); qualityGiven = true
         case "--transparent": transparent = true
         case "-o", "--output": common.output = try scanner.value(a)
         case "--password": common.password = try scanner.value(a)
@@ -58,6 +59,13 @@ func runRender(_ args: [String]) throws {
     }
     if transparent && !format.supportsTransparency {
         throw PDFUtilError.usage("--transparent is not supported for \(format.rawValue)")
+    }
+    // writeCGImage applies the quality only when format.isLossy, so png/tiff
+    // took it and threw it away (--quality 1 and --quality 100 produced
+    // byte-identical files). --transparent above already refuses its own
+    // unsupported formats; this is the same rule for the sibling option.
+    if qualityGiven && !format.isLossy {
+        throw PDFUtilError.usage("--quality applies only to the lossy formats (jpeg, heic), not \(format.rawValue)")
     }
     let effectiveDPI = dpi ?? scale.map { $0 * 72.0 } ?? 150.0
     let clampedQuality = Double(min(100, max(1, quality))) / 100.0

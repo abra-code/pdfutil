@@ -12,8 +12,9 @@ text layer). Recognized text is printed in reading order, pages separated by a
 form-feed page break.
 
 With --searchable, the document is instead saved with an embedded text layer
-produced by PDFKit's own OCR (a structure-preserving save); the --dpi/--lang/
---fast options do not apply to that path.
+produced by PDFKit's own OCR (a structure-preserving save). That path OCRs the
+whole document and picks its own recognition parameters, so -p/--pages, --lang,
+--fast, and --dpi cannot be honored and are refused rather than ignored.
 
 Options:
   -p, --pages RANGE   Only these pages (default: all)
@@ -35,6 +36,7 @@ func runOcr(_ args: [String]) throws {
     var languages: [String] = []
     var fast = false
     var dpi: Double = 300
+    var dpiGiven = false
     var searchable = false
     var scanner = ArgScanner(verb: "ocr", args)
 
@@ -44,7 +46,9 @@ func runOcr(_ args: [String]) throws {
         case "-p", "--pages": common.pages = try scanner.value(a)
         case "--lang": languages.append(try scanner.value(a))
         case "--fast": fast = true
-        case "--dpi": dpi = try positiveDouble(try scanner.value(a), option: "--dpi")
+        case "--dpi":
+            dpi = try positiveDouble(try scanner.value(a), option: "--dpi")
+            dpiGiven = true
         case "--searchable": searchable = true
         case "-o", "--output": common.output = try scanner.value(a)
         case "--password": common.password = try scanner.value(a)
@@ -58,12 +62,38 @@ func runOcr(_ args: [String]) throws {
         throw PDFUtilError.usage("expected exactly one input PDF")
     }
     let path = scanner.positionals[0]
-    let doc = try openPDF(path: path, password: common.password)
 
+    // Validated from parsed state alone, BEFORE openPDF, so a bad command line
+    // reports a usage error (exit 1) rather than whatever the file turns out to
+    // be (exit 2 for missing or password-protected). Every other guard added in
+    // this pass runs before any I/O; this one has to be hoisted explicitly
+    // because the searchable branch needs the opened document afterwards.
+    var searchableOutput: String?
     if searchable {
         guard let output = common.output else {
             throw PDFUtilError.usage("--searchable requires -o/--output")
         }
+        // PDFKit's OCR-embed is a whole-document write option with no per-page
+        // or per-parameter control, so none of these can be honored. Refuse
+        // rather than drop: silently ignoring -p wrote a fully OCR'd document
+        // while the caller believed one page had been touched, and an
+        // out-of-range -p was accepted without a word because the validation
+        // lives on the other branch. Unknown options are already a usage error
+        // (ArgScanner.addPositional); an option that cannot apply should be too.
+        var inapplicable: [String] = []
+        if common.pages != nil { inapplicable.append("-p/--pages") }
+        if !languages.isEmpty { inapplicable.append("--lang") }
+        if fast { inapplicable.append("--fast") }
+        if dpiGiven { inapplicable.append("--dpi") }
+        if !inapplicable.isEmpty {
+            throw PDFUtilError.usage("--searchable cannot be combined with \(inapplicable.joined(separator: ", ")): PDFKit's OCR-embed covers the whole document and chooses its own recognition parameters")
+        }
+        searchableOutput = output
+    }
+
+    let doc = try openPDF(path: path, password: common.password)
+
+    if let output = searchableOutput {
         try ocrSearchable(doc: doc, output: output, force: common.force, inPlaceOf: path)
         return
     }

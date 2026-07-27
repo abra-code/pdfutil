@@ -20,10 +20,11 @@ are not individually selectable this way.
 
 Options:
       --list          List the form fields (the default)
-      --json          With --list, print the fields as JSON
+      --json          Print the fields as JSON (read mode only)
       --fill DATA     Set field values from a JSON object file, then save
       --flatten       Burn the (filled) fields into the page content on save
-  -o, --output FILE   Output file for edits (default: edit in place)
+  -o, --output FILE   Edited PDF when filling/flattening, or the file to write
+                      the listing to in read mode (default: stdout / in place)
       --password PW   Password for an encrypted PDF
       --force         Overwrite an existing output file
   -h, --help          Show this help
@@ -60,6 +61,11 @@ func runForms(_ args: [String]) throws {
     if list && mutating {
         throw PDFUtilError.usage("--list cannot be combined with --fill/--flatten")
     }
+    // The mutating branch writes a PDF and never consults common.json, so the
+    // flag was accepted and dropped. There is no JSON for a save to emit.
+    if common.json && mutating {
+        throw PDFUtilError.usage("--json applies to the field listing only, not to --fill/--flatten")
+    }
     let path = scanner.positionals[0]
     let doc = try openPDF(path: path, password: common.password)
 
@@ -72,10 +78,10 @@ func runForms(_ args: [String]) throws {
         return
     }
 
+    // Read mode honors -o/--force. It used to ignore both and always print to
+    // stdout, so `forms --list --json -o fields.json in.pdf` exited 0 having
+    // created no file at all - an ignored destination, not an ignored knob.
     let fields = gatherFormFields(doc)
-    if common.json {
-        try emitJSON(fields)
-    } else {
-        writeOut(formatFormFields(fields))
-    }
+    let body = common.json ? try encodeJSONString(fields) : formatFormFields(fields)
+    try writeTextOutput(body, to: common.output, force: common.force)
 }

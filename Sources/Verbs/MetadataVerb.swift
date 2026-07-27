@@ -17,7 +17,9 @@ Options:
       --set KEY=VALUE Set an attribute (repeatable)
       --delete KEY    Remove an attribute (repeatable)
       --strip         Remove all attributes
-  -o, --output FILE   Output file for edits (default: edit in place)
+  -o, --output FILE   Edited PDF when setting/deleting/stripping, or the file to
+                      write the listing to in read mode (default: stdout /
+                      in place)
       --password PW   Password for an encrypted PDF
       --force         Overwrite an existing output file
   -h, --help          Show this help
@@ -57,6 +59,11 @@ func runMetadata(_ args: [String]) throws {
         throw PDFUtilError.usage("expected exactly one input PDF")
     }
     let path = scanner.positionals[0]
+    // Same two gaps as `forms`: the mutating branch never reads common.json,
+    // and the read branch never read common.output/force.
+    if common.json && edit.mutates {
+        throw PDFUtilError.usage("--json applies to the attribute listing only, not to --set/--delete/--strip")
+    }
 
     let doc = try openPDF(path: path, password: common.password)
 
@@ -71,10 +78,8 @@ func runMetadata(_ args: [String]) throws {
         try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path)
     } else {
         let attributes = readDocAttributes(doc)
-        if common.json {
-            try emitJSON(attributes)
-        } else {
-            writeOut(formatAttributes(attributes))
-        }
+        let body = common.json ? try encodeJSONString(attributes)
+                               : formatAttributes(attributes)
+        try writeTextOutput(body, to: common.output, force: common.force)
     }
 }

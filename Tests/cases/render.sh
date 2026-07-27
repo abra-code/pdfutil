@@ -39,4 +39,14 @@ expect_code 2 "$PDFUTIL" render --dpi 1e19 -o "$TMP/x.png" "$FIX/text.pdf"
 expect_ok "$PDFUTIL" render -p 1-2 --dpi 36 -o "$TMP/pref.png" --force "$FIX/text.pdf"
 [ -f "$TMP/pref-001.png" ] || fail "render prefix did not strip the .png extension"
 
+# writeCGImage applies quality only when the format is lossy, so png/tiff took
+# --quality and threw it away (1 and 100 gave byte-identical files). This is the
+# same rule --transparent already enforced for its own unsupported formats.
+expect_code 1 "$PDFUTIL" render -p 1 --format png --quality 50 -o "$TMP/x.png" --force "$FIX/text.pdf"
+expect_code 1 "$PDFUTIL" render -p 1 --format tiff --quality 50 -o "$TMP/x.tiff" --force "$FIX/text.pdf"
+# Lossy formats still take it; the non-lossy formats still work without it.
+expect_ok "$PDFUTIL" render -p 1 --format jpeg --quality 50 -o "$TMP/x.jpg" --force "$FIX/text.pdf"
+expect_ok "$PDFUTIL" render -p 1 --format heic --quality 50 -o "$TMP/x.heic" --force "$FIX/text.pdf"
+expect_ok "$PDFUTIL" render -p 1 --format png -o "$TMP/x.png" --force "$FIX/text.pdf"
+
 expect_ok "$PDFUTIL" render --help

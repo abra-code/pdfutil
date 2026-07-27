@@ -22,4 +22,18 @@ expect_nogrep "title: Hello" "$PDFUTIL" metadata "$TMP/meta.pdf"
 expect_code 1 "$PDFUTIL" metadata --set bogus=1 -o "$TMP/x.pdf" "$FIX/text.pdf"
 expect_code 1 "$PDFUTIL" metadata --set creation-date=notadate -o "$TMP/x.pdf" "$FIX/text.pdf"
 
+# Same two gaps as forms: read mode ignored -o, and --json rode along silently
+# with a save that has no JSON to emit.
+rm -f "$TMP/attrs.json"
+expect_ok "$PDFUTIL" metadata --json -o "$TMP/attrs.json" "$FIX/text.pdf"
+[ -s "$TMP/attrs.json" ] || fail "metadata -o did not write the listing"
+python3 -m json.tool < "$TMP/attrs.json" >/dev/null 2>&1 \
+    || fail "metadata --json -o did not write valid JSON"
+expect_code 2 "$PDFUTIL" metadata -o "$TMP/attrs.json" "$FIX/text.pdf"
+expect_ok   "$PDFUTIL" metadata -o "$TMP/attrs.json" --force "$FIX/text.pdf"
+expect_grep "producer" "$PDFUTIL" metadata "$FIX/text.pdf"
+
+expect_code 1 "$PDFUTIL" metadata --set title=X --json -o "$TMP/x.pdf" --force "$FIX/text.pdf"
+expect_code 1 "$PDFUTIL" metadata --strip --json -o "$TMP/x.pdf" --force "$FIX/text.pdf"
+
 expect_ok "$PDFUTIL" metadata --help

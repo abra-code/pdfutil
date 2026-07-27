@@ -331,7 +331,8 @@ lists the available names (use `pdf_forms_list` first).
   "text":       "<string>",   // exactly one of text / imagePath
   "imagePath":  "<string>",   // an image under a root (sandbox-checked input)
   "position":   "<string>",   // optional; center (default), top-left, top-right, bottom-left, bottom-right
-  "angle":      <number>,     // optional; mark rotation in degrees, burn-in only (default 45)
+  "angle":      <number>,     // optional; mark rotation in degrees, burn-in only (default 45).
+                              //   Refused with annotation: true, not ignored.
   "opacity":    <number>,     // optional; 0-1 (default 0.25)
   "pages":      "<string>",   // optional; default all
   "annotation": <boolean>,    // optional; default false

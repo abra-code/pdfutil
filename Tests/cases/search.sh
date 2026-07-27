@@ -19,4 +19,17 @@ expect_ok "$PDFUTIL" search "$FIX/text.pdf" zzznotpresent
 "$PDFUTIL" search --json "$FIX/text.pdf" needle | python3 -m json.tool >/dev/null 2>&1 \
     || fail "search --json is not valid JSON"
 
+# --count and --json are two output formats, not a format plus a modifier. The
+# dispatch tested countOnly first, so --count silently won and the requested
+# JSON never appeared.
+expect_code 1 "$PDFUTIL" search --count --json "$FIX/text.pdf" needle
+expect_ok "$PDFUTIL" search --count "$FIX/text.pdf" needle
+expect_ok "$PDFUTIL" search --json "$FIX/text.pdf" needle
+
+# --context only sizes the snippet, which --count does not print: 0, 20 and 99
+# all produced the same total.
+expect_code 1 "$PDFUTIL" search --count --context 0 "$FIX/text.pdf" needle
+expect_ok "$PDFUTIL" search --context 40 "$FIX/text.pdf" needle
+expect_ok "$PDFUTIL" search --json --context 40 "$FIX/text.pdf" needle
+
 expect_ok "$PDFUTIL" search --help

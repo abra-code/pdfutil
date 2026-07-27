@@ -27,6 +27,7 @@ printf '%s\n' \
   "{\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_watermark\",\"arguments\":{\"path\":\"$MCP_FIX/text.pdf\",\"imagePath\":\"$WROOTB/mark.png\",\"annotation\":true,\"output\":\"$WROOTB/badann2.pdf\"}}}" \
   "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_reduce\",\"arguments\":{\"path\":\"$MCP_FIX/image.pdf\",\"gray\":true,\"quality\":50,\"output\":\"$WROOTB/badgray.pdf\"}}}" \
   "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_forms_fill\",\"arguments\":{\"path\":\"$MCP_FIX/form.pdf\",\"fields\":{\"agree\":1},\"output\":\"$WROOTB/badbool.pdf\"}}}" \
+  "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_watermark\",\"arguments\":{\"path\":\"$MCP_FIX/text.pdf\",\"text\":\"D\",\"annotation\":true,\"angle\":30,\"output\":\"$WROOTB/badangle.pdf\"}}}" \
   | "$PDFUTIL" mcp --root "$MCP_FIX" --root "$WROOTB" --writable > "$TMP/mcpw-b.txt" 2>/dev/null
 
 python3 - "$TMP/mcpw-b.txt" "$MCP_FIX/image.pdf" <<'PY' || fail "mcp-write-b session assertions failed"
@@ -79,11 +80,14 @@ check(is_error(15) and "true or false" in text(15), "a string 'true' for annotat
 check(is_error(16) and "requires 'text'" in text(16), "annotation with an image is refused")
 check(is_error(17) and "gray" in text(17), "gray combined with quality is refused")
 check(is_error(18) and "true or false" in text(18), "a numeric checkbox value is refused")
+# The schema has always said "burn-in only"; watermarkAnnotation never read
+# rotateMark, so the angle was accepted and dropped rather than enforced.
+check(is_error(19) and "burn-in only" in text(19), "angle combined with annotation is refused")
 
 sys.exit(0 if ok else 1)
 PY
 
 # No refused call left an output behind.
-for f in both badfield badimg badq badann badann2 badgray badbool; do
+for f in both badfield badimg badq badann badann2 badgray badbool badangle; do
     if [ -e "$WROOTB/$f.pdf" ]; then fail "a refused call left $f.pdf behind"; fi
 done

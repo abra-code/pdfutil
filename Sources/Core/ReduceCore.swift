@@ -99,7 +99,18 @@ func reduceDocument(path: String, output: String?, force: Bool, password: String
         try redraw(document: cgDoc, to: tmpURL, auxiliaryInfo: aux, filter: filter)
     }
     let outSize = fileSize(output ?? path)
-    let pct = inSize > 0 ? (1.0 - Double(outSize) / Double(inSize)) * 100.0 : 0
-    writeErr(String(format: "reduce: %d page(s), %d -> %d bytes (%.1f%% smaller)\n",
-                    pageCount, inSize, outSize, pct))
+    // Recompression can enlarge a file (re-encoding an already-optimal image,
+    // or the redraw's own overhead on a mostly-vector document). Say which way
+    // it went: the old format printed a signed number against a fixed word, so
+    // a file that grew by 9.2% was reported as "(-9.2% smaller)".
+    let ratio = inSize > 0 ? Double(outSize) / Double(inSize) : 1.0
+    let pct = abs(1.0 - ratio) * 100.0
+    if outSize == inSize {
+        writeErr(String(format: "reduce: %d page(s), %d -> %d bytes (unchanged)\n",
+                        pageCount, inSize, outSize))
+    } else {
+        let direction = outSize < inSize ? "smaller" : "larger"
+        writeErr(String(format: "reduce: %d page(s), %d -> %d bytes (%.1f%% %@)\n",
+                        pageCount, inSize, outSize, pct, direction))
+    }
 }

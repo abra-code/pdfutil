@@ -230,7 +230,8 @@ private func toolPdfWatermark(_ arguments: [String: Any], _ roots: [String]) thr
         }
         spec.position = p
     }
-    if let angle = try optionalDouble(arguments, "angle") { spec.rotateMark = angle }
+    let angle = try optionalDouble(arguments, "angle")
+    if let angle = angle { spec.rotateMark = angle }
     if let opacity = try optionalDouble(arguments, "opacity") {
         guard opacity >= 0, opacity <= 1 else {
             throw PDFUtilError.usage("'opacity' must be between 0 and 1")
@@ -240,6 +241,12 @@ private func toolPdfWatermark(_ arguments: [String: Any], _ roots: [String]) thr
     spec.annotation = try optionalBool(arguments, "annotation") ?? false
     guard !(spec.annotation && spec.text == nil) else {
         throw PDFUtilError.usage("'annotation' requires 'text' (an image watermark must be burned in)")
+    }
+    // watermarkAnnotation never reads spec.rotateMark, so an 'angle' passed
+    // alongside 'annotation' was accepted and dropped. The schema says
+    // "burn-in only"; this makes the server enforce what it advertises.
+    guard !(spec.annotation && angle != nil) else {
+        throw PDFUtilError.usage("'angle' is burn-in only: a freeText annotation is always axis-aligned")
     }
 
     let doc = try openPDF(path: path, password: nil)
@@ -483,7 +490,7 @@ func mutatingToolDefinitions() -> [[String: Any]] {
                     "text": ["type": "string", "description": "Watermark text (exactly one of 'text' or 'imagePath')"],
                     "imagePath": ["type": "string", "description": "Watermark image file, under an allowed root (exactly one of 'text' or 'imagePath')"],
                     "position": ["type": "string", "enum": ["center", "top-left", "top-right", "bottom-left", "bottom-right"], "description": "Anchor on the page (default center)"],
-                    "angle": ["type": "number", "description": "Rotation of the mark in degrees, burn-in only (default 45)"],
+                    "angle": ["type": "number", "description": "Rotation of the mark in degrees; burn-in only (default 45). Refused when 'annotation' is true, since a freeText annotation is always axis-aligned"],
                     "opacity": ["type": "number", "description": "Mark opacity 0-1 (default 0.25)"],
                     "pages": pagesProperty("Pages to mark, e.g. 1-3 (1-based); default all"),
                     "annotation": ["type": "boolean", "description": "Add a structure-preserving freeText annotation instead of burning in (text only, default false)"],

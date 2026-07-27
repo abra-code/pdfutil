@@ -24,11 +24,28 @@ if [ -f "$GRAY" ]; then
     expect_ok "$PDFUTIL" reduce --gray -o "$TMP/gray.pdf" "$FIX/image.pdf"
 fi
 
-# --filter is mutually exclusive with -q/-r/-m/--gray.
+# --filter is mutually exclusive with -q/-r/-m/--gray. The --gray leg matters
+# most: it is the one whose representation changed when sawImageFlag became a
+# separate recompressFlags list plus an options.gray term, so it is the only
+# place this exclusion could have silently regressed.
 expect_code 1 "$PDFUTIL" reduce --filter "$GRAY" -q 50 -o "$TMP/x.pdf" "$FIX/image.pdf"
+expect_code 1 "$PDFUTIL" reduce --filter "$GRAY" -r 72 -o "$TMP/x.pdf" "$FIX/image.pdf"
+expect_code 1 "$PDFUTIL" reduce --filter "$GRAY" -m 500 -o "$TMP/x.pdf" "$FIX/image.pdf"
+expect_code 1 "$PDFUTIL" reduce --filter "$GRAY" --gray -o "$TMP/x.pdf" "$FIX/image.pdf"
 
 # Overwrite policy.
 expect_fail "$PDFUTIL" reduce -o "$TMP/reduced.pdf" "$FIX/image.pdf"
 expect_ok   "$PDFUTIL" reduce -o "$TMP/reduced.pdf" --force "$FIX/image.pdf"
+
+# --gray replaces recompression rather than tuning it: buildReduceFilter returns
+# the Gray Tone filter before it reads quality/dpi/maxEdge, so these three were
+# accepted and dropped (-q 1 and -q 100 gave byte-identical output). The MCP
+# twin pdf_reduce has always refused this; the CLI verb now matches it.
+expect_code 1 "$PDFUTIL" reduce --gray -q 50 -o "$TMP/x.pdf" --force "$FIX/image.pdf"
+expect_code 1 "$PDFUTIL" reduce --gray -r 72 -o "$TMP/x.pdf" --force "$FIX/image.pdf"
+expect_code 1 "$PDFUTIL" reduce --gray -m 500 -o "$TMP/x.pdf" --force "$FIX/image.pdf"
+# Each half stays valid on its own.
+expect_ok "$PDFUTIL" reduce --gray -o "$TMP/x.pdf" --force "$FIX/image.pdf"
+expect_ok "$PDFUTIL" reduce -q 50 -r 72 -m 500 -o "$TMP/x.pdf" --force "$FIX/image.pdf"
 
 expect_ok "$PDFUTIL" reduce --help

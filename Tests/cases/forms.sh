@@ -29,4 +29,21 @@ expect_code 1 "$PDFUTIL" forms --list --fill "$TMP/fill.json" -o "$TMP/x.pdf" "$
 # A file with no form fields lists cleanly.
 expect_grep "no form fields" "$PDFUTIL" forms "$FIX/text.pdf"
 
+# Read mode honors -o: it used to ignore the flag entirely and print to stdout,
+# so this exited 0 having created no file at all.
+rm -f "$TMP/fields.json"
+expect_ok "$PDFUTIL" forms --list --json -o "$TMP/fields.json" "$FIX/form.pdf"
+[ -s "$TMP/fields.json" ] || fail "forms --list -o did not write the listing"
+python3 -m json.tool < "$TMP/fields.json" >/dev/null 2>&1 \
+    || fail "forms --list --json -o did not write valid JSON"
+# The usual overwrite policy applies to that destination.
+expect_code 2 "$PDFUTIL" forms --list -o "$TMP/fields.json" "$FIX/form.pdf"
+expect_ok   "$PDFUTIL" forms --list -o "$TMP/fields.json" --force "$FIX/form.pdf"
+# With no -o the listing still goes to stdout.
+expect_grep "name" "$PDFUTIL" forms --list "$FIX/form.pdf"
+
+# --json describes the listing, so it cannot ride along with a save.
+expect_code 1 "$PDFUTIL" forms --fill "$TMP/fill.json" --json -o "$TMP/x.pdf" --force "$FIX/form.pdf"
+expect_code 1 "$PDFUTIL" forms --flatten --json -o "$TMP/x.pdf" --force "$FIX/form.pdf"
+
 expect_ok "$PDFUTIL" forms --help
