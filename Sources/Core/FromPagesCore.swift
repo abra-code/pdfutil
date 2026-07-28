@@ -127,7 +127,7 @@ private func looksLikePDF(_ path: String) -> Bool {
 // Two sizing modes. Without a page size the page in points is pixels * 72 / dpi,
 // where dpi is the override, the file's recorded DPI, or 72 - so the page is as
 // big as the image claims to be. With one, every page is that fixed size and the
-// image is scaled to fit inside it, centred, keeping its aspect ratio.
+// image is scaled to fit inside it, centered, keeping its aspect ratio.
 //
 // Fit-to-page ORIENTS the page to the image: a landscape photo gets a landscape
 // page rather than a portrait one with deep white bands top and bottom. A square

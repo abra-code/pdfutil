@@ -88,7 +88,7 @@ cmp -s "$TMP/grow.pdf" "$TMP/self.pdf" || fail "reduce -o naming the input corru
 
 # --gray is EXEMPT: the transformation is what was asked for, so its output is
 # kept whatever it weighs. Without the exemption a grayscale run that grew would
-# silently return a colour document.
+# silently return a color document.
 if [ -f "$GRAY" ]; then
     expect_ok "$PDFUTIL" reduce --gray --force -o "$TMP/graygrow.pdf" "$TMP/grow.pdf"
     if "$PDFUTIL" reduce --gray --force -o "$TMP/graygrow.pdf" "$TMP/grow.pdf" 2>&1 \
@@ -157,7 +157,7 @@ expect_code 0 "$PDFUTIL" reduce -m 0 --force -o "$TMP/sym-target.pdf" "$TMP/sym-
 [ "$(wc -c < "$TMP/sym-target.pdf")" -eq "$targetsize" ] || fail "reduce altered the target of a symlinked input it declined to shrink"
 expect_grep "%PDF-" /usr/bin/head -c 5 "$TMP/sym-target.pdf"
 
-# The declined path must still honour the create-only policy: an output that
+# The declined path must still honor the create-only policy: an output that
 # exists without --force is refused rather than removed and replaced.
 printf 'not a pdf' > "$TMP/sym-taken.pdf"
 expect_fail "$PDFUTIL" reduce -m 0 -o "$TMP/sym-taken.pdf" "$TMP/grow.pdf"

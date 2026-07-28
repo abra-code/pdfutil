@@ -15,7 +15,7 @@ combine PDFs while preserving structure.
 Options:
   -o, --output FILE   Output file (required)
       --dpi N         Assume this DPI for all images (overrides recorded DPI)
-      --page-size S   Scale each IMAGE to fit a fixed page instead, centred and
+      --page-size S   Scale each IMAGE to fit a fixed page instead, centered and
                       keeping its aspect ratio. S is letter, legal, tabloid, a3,
                       a4, a5, or WxH in points. The page is oriented to the
                       image, so landscape photos get landscape pages. PDF inputs
