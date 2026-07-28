@@ -18,7 +18,15 @@ Options:
   -q, --quality N     JPEG quality 1-100 (default 85)
   -r, --dpi N         Downsample images above this resolution, in DPI
                       (default 150; 0 disables resolution downsampling)
-  -m, --max-edge N    Cap the longest image edge to N pixels (default 0 = no cap)
+  -m, --max-edge N    Cap the longest image edge to N pixels (default 2400;
+                      0 = no cap). The cap is what makes JPEG recompression
+                      take effect: Quartz re-encodes only images it rescales,
+                      and -r is relative to the page, so it never fires on a
+                      document assembled at the images' own DPI.
+
+A run that would produce a LARGER file keeps the original instead and says so.
+--gray and --filter are exempt: their output is a transformation you asked for,
+so it is kept whatever its size.
       --gray          Convert to grayscale via the system "Gray Tone" filter
                       (replaces recompression, so it excludes -q/-r/-m)
       --filter FILE   Apply an explicit .qfilter (excludes -q/-r/-m/--gray)

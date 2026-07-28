@@ -348,11 +348,12 @@ links, outline, and form fields. `annotation: true` is structure-preserving
 
 ```json
 {
-  "path":    "<string>",   // required
-  "quality": <integer>,    // optional; JPEG quality 1-100 (default 85)
-  "dpi":     <integer>,    // optional; downsample images above this DPI, 0 disables (default 150)
-  "gray":    <boolean>,    // optional; default false, exclusive with quality/dpi
-  "output":  "<string>"    // required
+  "path":     "<string>",   // required
+  "quality":  <integer>,    // optional; JPEG quality 1-100 (default 85)
+  "dpi":      <integer>,    // optional; downsample images above this DPI, 0 disables (default 150)
+  "max_edge": <integer>,    // optional; cap the longest image edge in px, 0 disables (default 2400)
+  "gray":     <boolean>,    // optional; default false, exclusive with quality/dpi/max_edge
+  "output":   "<string>"    // required
 }
 ```
 
@@ -360,6 +361,25 @@ links, outline, and form fields. `annotation: true` is structure-preserving
 form fields. `gray` applies the system Gray Tone filter *instead of* the
 recompress/downsample filter, so combining it with `quality` or `dpi` is
 refused.
+
+The longest image edge is capped at 2400 px, matching the system "Reduce File
+Size" filter. That cap is what makes `quality` take effect at all: Quartz
+re-encodes only the images it rescales, and `dpi` is measured against the page,
+so it never fires on a document whose images sit at their own resolution.
+
+**A run that would produce a larger file keeps the original instead**, so
+`output` is never worse than `path`. `gray` is exempt - it is a transformation
+you asked for, so its output is kept whatever its size.
+
+Because of that, this tool's result carries more than the usual three fields:
+
+```json
+{ "output": "...", "bytes": 3218020, "originalBytes": 7371292,
+  "pageCount": 2, "reduced": true }
+```
+
+`reduced` is false when the run declined and `output` is a copy of the input.
+Check it rather than assuming a successful call shrank anything.
 
 ---
 

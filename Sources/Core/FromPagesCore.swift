@@ -6,10 +6,49 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
+// The named page sizes --page-size accepts, in points (72 per inch). The
+// A-series values are the standard integer roundings of their millimetre
+// definitions (A4 is 210x297 mm = 595.28x841.89 pt).
+let namedPageSizes: [String: CGSize] = [
+    "letter":  CGSize(width: 612, height: 792),
+    "legal":   CGSize(width: 612, height: 1008),
+    "tabloid": CGSize(width: 792, height: 1224),
+    "a3":      CGSize(width: 842, height: 1191),
+    "a4":      CGSize(width: 595, height: 842),
+    "a5":      CGSize(width: 420, height: 595),
+]
+
+// Parse a --page-size value: a name from the table above, or explicit WxH in
+// points ("612x792", decimals allowed).
+func parsePageSize(_ raw: String) throws -> CGSize {
+    let key = raw.lowercased().trimmingCharacters(in: .whitespaces)
+    if let named = namedPageSizes[key] { return named }
+
+    let parts = key.split(separator: "x", omittingEmptySubsequences: false)
+    if parts.count == 2,
+       let w = Double(parts[0]), let h = Double(parts[1]),
+       w > 0, h > 0, w.isFinite, h.isFinite {
+        return CGSize(width: w, height: h)
+    }
+    let names = namedPageSizes.keys.sorted().joined(separator: ", ")
+    throw PDFUtilError.usage("--page-size expects one of \(names), or WxH in points (got '\(raw)')")
+}
+
 // Combine the inputs, in order, into a single PDF written to `output`. Each input
 // is classified by whether CoreGraphics opens it as a PDF; otherwise it is read
 // as an image (multi-frame images contribute one page per frame).
-func combineToPDF(inputs: [String], output: String, dpiOverride: Double?, force: Bool) throws {
+//
+// `pageSize` and `dpiOverride` are alternative ways to size IMAGE pages and the
+// verb refuses both at once: with a page size each image is scaled to fit a
+// fixed page, and without one the page is whatever the image's own resolution
+// says it should be.
+//
+// Neither touches PDF inputs, which are redrawn at their own page sizes. That is
+// deliberate - rescaling someone's existing pages is a different operation from
+// laying out photos - but it means a mixed run with --page-size yields mixed
+// page sizes, which the help text says out loud.
+func combineToPDF(inputs: [String], output: String, dpiOverride: Double?,
+                  pageSize: CGSize?, force: Bool) throws {
     let fm = FileManager.default
     let outURL = URL(fileURLWithPath: output).standardizedFileURL
 
@@ -51,7 +90,8 @@ func combineToPDF(inputs: [String], output: String, dpiOverride: Double?, force:
                     }
                 }
             } else {
-                try addImagePages(path: path, into: ctx, dpiOverride: dpiOverride)
+                try addImagePages(path: path, into: ctx, dpiOverride: dpiOverride,
+                                  pageSize: pageSize)
             }
         }
     } catch {
@@ -82,9 +122,18 @@ private func looksLikePDF(_ path: String) -> Bool {
     return head.range(of: Data("%PDF-".utf8)) != nil
 }
 
-// Add every frame of an image file as its own PDF page. The page size in points
-// is pixels * 72 / dpi, where dpi is the override, the file's recorded DPI, or 72.
-private func addImagePages(path: String, into ctx: CGContext, dpiOverride: Double?) throws {
+// Add every frame of an image file as its own PDF page.
+//
+// Two sizing modes. Without a page size the page in points is pixels * 72 / dpi,
+// where dpi is the override, the file's recorded DPI, or 72 - so the page is as
+// big as the image claims to be. With one, every page is that fixed size and the
+// image is scaled to fit inside it, centred, keeping its aspect ratio.
+//
+// Fit-to-page ORIENTS the page to the image: a landscape photo gets a landscape
+// page rather than a portrait one with deep white bands top and bottom. A square
+// image leaves the requested orientation alone.
+private func addImagePages(path: String, into ctx: CGContext, dpiOverride: Double?,
+                           pageSize: CGSize?) throws {
     let url = URL(fileURLWithPath: path)
     guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
         throw PDFUtilError.processing("cannot open image: \(path)")
@@ -99,24 +148,48 @@ private func addImagePages(path: String, into ctx: CGContext, dpiOverride: Doubl
             guard let image = CGImageSourceCreateImageAtIndex(source, frame, nil) else {
                 throw PDFUtilError.processing("cannot read image frame \(frame + 1) of \(path)")
             }
-            let props = CGImageSourceCopyPropertiesAtIndex(source, frame, nil) as? [CFString: Any]
-            let dpi: Double
-            if let override = dpiOverride {
-                dpi = override
-            } else if let recorded = props?[kCGImagePropertyDPIWidth] as? Double, recorded > 0 {
-                dpi = recorded
+            let imageW = Double(image.width)
+            let imageH = Double(image.height)
+
+            var box: CGRect
+            var drawRect: CGRect
+
+            if let requested = pageSize {
+                var pageW = Double(requested.width)
+                var pageH = Double(requested.height)
+                // Match the page's orientation to the image's. Comparing the two
+                // "is it wider than tall" answers turns the page only when they
+                // disagree, and leaves a square image on the page as asked for.
+                if (imageW > imageH) != (pageW > pageH) {
+                    swap(&pageW, &pageH)
+                }
+                // The smaller of the two ratios is the one that fits; using it
+                // for both axes is what preserves the aspect ratio.
+                let scale = min(pageW / imageW, pageH / imageH)
+                let drawW = imageW * scale
+                let drawH = imageH * scale
+                box = CGRect(x: 0, y: 0, width: pageW, height: pageH)
+                drawRect = CGRect(x: (pageW - drawW) / 2, y: (pageH - drawH) / 2,
+                                  width: drawW, height: drawH)
             } else {
-                dpi = 72
+                let props = CGImageSourceCopyPropertiesAtIndex(source, frame, nil) as? [CFString: Any]
+                let dpi: Double
+                if let override = dpiOverride {
+                    dpi = override
+                } else if let recorded = props?[kCGImagePropertyDPIWidth] as? Double, recorded > 0 {
+                    dpi = recorded
+                } else {
+                    dpi = 72
+                }
+                box = CGRect(x: 0, y: 0, width: imageW * 72.0 / dpi, height: imageH * 72.0 / dpi)
+                drawRect = box
             }
 
-            let widthPts = Double(image.width) * 72.0 / dpi
-            let heightPts = Double(image.height) * 72.0 / dpi
-            var box = CGRect(x: 0, y: 0, width: widthPts, height: heightPts)
             let pageInfo: [String: Any] = [
                 kCGPDFContextMediaBox as String: NSData(bytes: &box, length: MemoryLayout<CGRect>.size),
             ]
             ctx.beginPDFPage(pageInfo as CFDictionary)
-            ctx.draw(image, in: box)
+            ctx.draw(image, in: drawRect)
             ctx.endPDFPage()
         }
     }

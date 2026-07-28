@@ -97,6 +97,24 @@ private struct MutationResult: Codable {
     let pageCount: Int
 }
 
+// reduce's result carries the before size and whether anything was gained, so a
+// declined run is legible to an agent rather than looking like a success.
+private struct ReduceResult: Codable {
+    let output: String
+    let bytes: Int
+    let originalBytes: Int
+    let pageCount: Int
+    let reduced: Bool
+}
+
+private func reduceResult(_ output: String, originalBytes: Int) throws -> [String: Any] {
+    let bytes = ((try? FileManager.default.attributesOfItem(atPath: output))?[.size] as? Int) ?? 0
+    let pageCount = PDFDocument(url: URL(fileURLWithPath: output))?.pageCount ?? 0
+    return toolText(try encodeJSONString(ReduceResult(
+        output: output, bytes: bytes, originalBytes: originalBytes,
+        pageCount: pageCount, reduced: originalBytes > 0 && bytes < originalBytes)))
+}
+
 // The uniform mutating-tool result: stat the written file so the agent can
 // chain the next call without a separate stat round-trip.
 private func mutationResult(_ output: String) throws -> [String: Any] {
@@ -278,15 +296,29 @@ private func toolPdfReduce(_ arguments: [String: Any], _ roots: [String]) throws
         }
         options.dpi = dpi
     }
+    if let maxEdge = try optionalInt(arguments, "max_edge") {
+        guard maxEdge >= 0 else {
+            throw PDFUtilError.usage("'max_edge' must be >= 0 (0 disables the cap)")
+        }
+        options.maxEdge = maxEdge
+    }
     options.gray = try optionalBool(arguments, "gray") ?? false
     // The Gray Tone system filter replaces the recompress/downsample filter
     // entirely; a combination would silently drop quality/dpi, so refuse it.
-    if options.gray, presentValue(arguments, "quality") != nil || presentValue(arguments, "dpi") != nil {
-        throw PDFUtilError.usage("'gray' cannot be combined with 'quality' or 'dpi' (the grayscale filter replaces recompression)")
+    if options.gray, presentValue(arguments, "quality") != nil || presentValue(arguments, "dpi") != nil
+        || presentValue(arguments, "max_edge") != nil {
+        throw PDFUtilError.usage("'gray' cannot be combined with 'quality', 'dpi' or 'max_edge' (the grayscale filter replaces recompression)")
     }
 
+    // Sizes either side, because reduce can decline: when recompression would
+    // have produced a bigger file it keeps the original and copies it to the
+    // output. That is reported on stderr, which MCP never sees, so without
+    // these two numbers an agent cannot tell "shrank it" from "gave you back
+    // what you had" - and would go on believing the file had been optimized.
+    let originalBytes = ((try? FileManager.default
+        .attributesOfItem(atPath: path))?[.size] as? Int) ?? 0
     try reduceDocument(path: path, output: output, force: false, password: nil, options: options)
-    return try mutationResult(output)
+    return try reduceResult(output, originalBytes: originalBytes)
 }
 
 // MARK: - Page rasterization to a file
@@ -508,7 +540,8 @@ func mutatingToolDefinitions() -> [[String: Any]] {
                     "path": pathProperty(),
                     "quality": ["type": "integer", "description": "JPEG quality 1-100 (default 85)"],
                     "dpi": ["type": "integer", "description": "Downsample images above this DPI; 0 disables (default 150)"],
-                    "gray": ["type": "boolean", "description": "Convert to grayscale via the system Gray Tone filter; cannot be combined with quality/dpi (default false)"],
+                    "max_edge": ["type": "integer", "description": "Cap the longest image edge in pixels; 0 disables (default 2400). This cap is what makes 'quality' take effect: only images that get rescaled are re-encoded."],
+                    "gray": ["type": "boolean", "description": "Convert to grayscale via the system Gray Tone filter; cannot be combined with quality/dpi/max_edge (default false)"],
                     "output": outputProperty(),
                 ],
                 "required": ["path", "output"],

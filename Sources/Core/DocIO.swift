@@ -96,10 +96,20 @@ func savePDF(_ doc: PDFDocument,
 // CGPDFContext rather than PDFDocument.write. `body` receives a sibling temp URL
 // to write into; on success it is atomically put in place (replacing an existing
 // file only when force allows it), and on any error the temp file is removed.
+//
+// `accept` is consulted once `body` has written the temp file and before it is
+// put in place. Returning false discards the result and leaves the destination
+// exactly as it was; the call returns false so the caller can say so. reduce is
+// what needs this: a recompression that produced a BIGGER file has failed at its
+// only job, and shipping it is worse than doing nothing. Deciding after the fact
+// rather than predicting is the point - whether Quartz can shrink a given
+// document is not knowable until it has tried.
+@discardableResult
 func writeAtomically(to output: String?,
                      force: Bool,
                      inPlaceOf inputPath: String,
-                     _ body: (URL) throws -> Void) throws {
+                     accept: ((URL) -> Bool)? = nil,
+                     _ body: (URL) throws -> Void) throws -> Bool {
     let fm = FileManager.default
     let destPath = output ?? inputPath
     let destURL = URL(fileURLWithPath: destPath).standardizedFileURL
@@ -119,6 +129,11 @@ func writeAtomically(to output: String?,
         throw error
     }
 
+    if let accept = accept, !accept(tmpURL) {
+        try? fm.removeItem(at: tmpURL)
+        return false
+    }
+
     do {
         if destExists {
             _ = try fm.replaceItemAt(destURL, withItemAt: tmpURL)
@@ -129,4 +144,5 @@ func writeAtomically(to output: String?,
         try? fm.removeItem(at: tmpURL)
         throw PDFUtilError.processing("failed to save output: \(destPath)")
     }
+    return true
 }

@@ -7,6 +7,13 @@ mkdir -p "$WROOTB"
 # A 1x1 PNG for the image-watermark path (an input under a root like any other).
 python3 -c "import base64,sys;open(sys.argv[1],'wb').write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='))" "$WROOTB/mark.png"
 
+# A document reduce cannot improve on: a JPEG page whose recorded DPI is forced
+# to 72, so it sits at 72 DPI on a page as many points across as it has pixels
+# and neither -r nor the max-edge cap can fire.
+expect_ok "$PDFUTIL" render -p 1 --dpi 200 --force -o "$TMP/mcpb-src.jpg" "$MCP_FIX/image.pdf"
+/usr/bin/sips -s dpiWidth 72 -s dpiHeight 72 "$TMP/mcpb-src.jpg" --out "$TMP/mcpb-src72.jpg" >/dev/null 2>&1
+expect_ok "$PDFUTIL" frompages --force -o "$WROOTB/grow.pdf" "$TMP/mcpb-src72.jpg"
+
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' \
   '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
@@ -28,6 +35,9 @@ printf '%s\n' \
   "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_reduce\",\"arguments\":{\"path\":\"$MCP_FIX/image.pdf\",\"gray\":true,\"quality\":50,\"output\":\"$WROOTB/badgray.pdf\"}}}" \
   "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_forms_fill\",\"arguments\":{\"path\":\"$MCP_FIX/form.pdf\",\"fields\":{\"agree\":1},\"output\":\"$WROOTB/badbool.pdf\"}}}" \
   "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_watermark\",\"arguments\":{\"path\":\"$MCP_FIX/text.pdf\",\"text\":\"D\",\"annotation\":true,\"angle\":30,\"output\":\"$WROOTB/badangle.pdf\"}}}" \
+  "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_reduce\",\"arguments\":{\"path\":\"$WROOTB/grow.pdf\",\"max_edge\":0,\"output\":\"$WROOTB/declined.pdf\"}}}" \
+  "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_reduce\",\"arguments\":{\"path\":\"$MCP_FIX/image.pdf\",\"gray\":true,\"max_edge\":800,\"output\":\"$WROOTB/badmax.pdf\"}}}" \
+  "{\"jsonrpc\":\"2.0\",\"id\":22,\"method\":\"tools/call\",\"params\":{\"name\":\"pdf_reduce\",\"arguments\":{\"path\":\"$MCP_FIX/image.pdf\",\"max_edge\":-1,\"output\":\"$WROOTB/badmax2.pdf\"}}}" \
   | "$PDFUTIL" mcp --root "$MCP_FIX" --root "$WROOTB" --writable > "$TMP/mcpw-b.txt" 2>/dev/null
 
 python3 - "$TMP/mcpw-b.txt" "$MCP_FIX/image.pdf" <<'PY' || fail "mcp-write-b session assertions failed"
@@ -74,6 +84,18 @@ check(is_error(10) and "exactly one" in text(10), "text+imagePath together refus
 check(is_error(11) and "unknown field" in text(11), "an unknown form field is a tool error")
 check(is_error(12) and "outside allowed roots" in text(12), "a watermark image outside the roots refused")
 check(is_error(13) and "quality" in text(13), "quality 0 refused")
+
+declined = json.loads(text(20))
+check(declined["reduced"] is False, "a declining reduce reports reduced=false")
+check(declined["bytes"] == declined["originalBytes"],
+      "a declining reduce returns the original size")
+check(declined["bytes"] > 0 and declined["pageCount"] == 1,
+      "the declined output is still a real PDF")
+shrank = json.loads(text(9))
+check(shrank["reduced"] is True, "a successful reduce reports reduced=true")
+check(shrank["originalBytes"] > shrank["bytes"], "reduce reports the before size")
+check(is_error(21) and "max_edge" in text(21), "gray with max_edge refused")
+check(is_error(22) and "max_edge" in text(22), "a negative max_edge refused")
 
 check(json.loads(text(14))["pageCount"] == 5, "image watermark writes 5 pages")
 check(is_error(15) and "true or false" in text(15), "a string 'true' for annotation is refused, not dropped")
