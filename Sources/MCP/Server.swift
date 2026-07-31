@@ -9,13 +9,51 @@
 
 import Foundation
 
-let kMCPProtocolVersion = "2025-06-18"
-private let kKnownProtocolVersions: Set<String> = ["2025-06-18", "2025-03-26", "2024-11-05"]
+// Revisions pdfutil speaks, newest first. Element 0 is the default: the revision
+// answered when a client asks for one we do not speak, asks with a non-string, or asks
+// for nothing at all. The lifecycle spec says that fallback SHOULD be the server's
+// latest, so the default is derived from the list rather than written out separately -
+// the two drifting apart is exactly how a server ends up answering its oldest revision.
+//
+// 2025-03-26 is deliberately ABSENT. It is the only revision that obliges an
+// implementation to accept JSON-RPC batches ("MCP implementations MAY support sending
+// JSON-RPC batches, but MUST support receiving JSON-RPC batches"), and this server
+// reads one JSON object per line. 2025-06-18 removed the requirement again, so skipping
+// the revision is the conformant way out; a batch parser would satisfy one dead
+// revision and nothing before or after it. A client asking for 2025-03-26 is answered
+// the head of this list, which the spec explicitly permits: "Otherwise, the server MUST
+// respond with another protocol version it supports."
+//
+// Nothing between 2025-03-26 and 2025-11-25 costs a stdio tools-only server anything
+// mandatory - outputSchema, elicitation, resource links and icons are all optional,
+// tasks default to "forbidden", and the OAuth and MCP-Protocol-Version work is HTTP
+// only - so the revision is reachable without new protocol surface.
+//
+// Kept in step with replay's kSupportedProtocolVersions: the two ship in the same
+// bundle and are probed by the same launcher.
+let kSupportedProtocolVersions = ["2025-11-25", "2025-06-18", "2024-11-05"]
+let kMCPProtocolVersion = kSupportedProtocolVersions[0]
+private let kKnownProtocolVersions: Set<String> = Set(kSupportedProtocolVersions)
+
+// Deriving the default from element 0 is only half the invariant - it still permits a
+// newer revision being appended at the tail, which would leave the default stale while
+// looking correct. Revisions are ISO-8601 dates, so lexicographic order is chronological
+// order and a plain descending check is the real test. Swift has no static_assert, so
+// this runs once at startup; a violation is a programming error, not a runtime
+// condition, hence precondition rather than a thrown error.
+func assertProtocolVersionsSorted() {
+    for i in 1..<kSupportedProtocolVersions.count {
+        precondition(kSupportedProtocolVersions[i - 1] > kSupportedProtocolVersions[i],
+                     "kSupportedProtocolVersions must be sorted newest-first with no duplicates, "
+                     + "so that element 0 is genuinely the latest revision pdfutil speaks")
+    }
+}
 
 // Run the server loop over stdin/stdout until EOF. `roots` are canonical
 // absolute paths (directories or single files, validated by the verb);
 // `writable` gates the mutating tool tier.
 func runMCPServer(roots: [String], writable: Bool) {
+    assertProtocolVersionsSorted()
     while let line = readLine(strippingNewline: true) {
         if line.trimmingCharacters(in: .whitespaces).isEmpty { continue }
         handleLine(line, roots: roots, writable: writable)

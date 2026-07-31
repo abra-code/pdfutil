@@ -419,11 +419,22 @@ call claims one path; use `pdfutil render` for bulk rasterization.
 
 ---
 
+## Protocol revision
+
+pdfutil speaks MCP `2025-11-25`, `2025-06-18` and `2024-11-05`. `initialize` echoes the client's
+requested revision when it is one of those, and otherwise answers `2025-11-25` - the latest it
+supports - without erroring, whatever the client sent.
+
+`2025-03-26` is deliberately not supported. It is the only revision that requires an
+implementation to accept JSON-RPC batches, and `2025-06-18` removed that requirement again;
+pdfutil reads one JSON object per line. A client that asks for `2025-03-26` is answered
+`2025-11-25`.
+
 ## Example session
 
 ```
---> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}
-<-- {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"pdfutil","version":"0.1"}}}
+--> {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}
+<-- {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"pdfutil","version":"0.1"}}}
 --> {"jsonrpc":"2.0","method":"notifications/initialized"}
 --> {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"pdf_text","arguments":{"path":"/docs/report.pdf","pages":"1-2"}}}
 <-- {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"..."}]}}
