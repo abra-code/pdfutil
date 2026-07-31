@@ -4,3 +4,4 @@ build/
 *.o
 Tests/tmp/
 Tests/fixtures/
+.build

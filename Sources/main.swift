@@ -8,7 +8,7 @@
 import Foundation
 
 let kProgram = "pdfutil"
-let kVersionNumber = "0.1"
+let kVersionNumber = "0.2"
 let kVersion = "pdfutil \(kVersionNumber)"
 
 // One entry per verb: its name, a one-line summary for the global help, and the
