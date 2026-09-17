@@ -9,5 +9,5 @@ import PDFKit
 func flattenDocument(path: String, output: String?, force: Bool, password: String?) throws {
     let doc = try openPDF(path: path, password: password)
     try savePDF(doc, to: output, writeOptions: [.burnInAnnotationsOption: true],
-                force: force, inPlaceOf: path)
+                force: force, inPlaceOf: path, password: password)
 }

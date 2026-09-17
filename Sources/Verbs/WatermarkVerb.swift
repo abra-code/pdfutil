@@ -112,7 +112,8 @@ func runWatermark(_ args: [String]) throws {
 
     if spec.annotation {
         try watermarkAnnotation(doc: doc, output: common.output, force: common.force,
-                                pages: pages, spec: spec, inPlaceOf: path)
+                                pages: pages, spec: spec, inPlaceOf: path,
+                                password: common.password)
     } else {
         try watermarkBurnIn(path: path, output: common.output, force: common.force,
                             password: common.password, pages: pages, spec: spec)

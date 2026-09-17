@@ -87,6 +87,7 @@ func fillForm(doc: PDFDocument, dataPath: String) throws {
 // individually selectable this way (a `true` would turn every option on); such
 // groups are out of scope.
 func applyFormValues(doc: PDFDocument, values: [String: Any]) throws {
+    try requirePermission(doc.allowsFormFieldEntry, "filling in form fields", in: doc)
     // Index widgets by field name (a field may span several widgets, e.g. radios).
     var widgets: [String: [PDFAnnotation]] = [:]
     for i in 0..<doc.pageCount {
@@ -125,7 +126,8 @@ func applyFormValues(doc: PDFDocument, values: [String: Any]) throws {
 // Save after a fill/flatten. Filling alone is structure-preserving; --flatten
 // burns the widgets' appearances into the page and drops the interactive fields.
 func saveForm(doc: PDFDocument, output: String?, force: Bool,
-              inPlaceOf path: String, flatten: Bool) throws {
+              inPlaceOf path: String, flatten: Bool, password: String?) throws {
     let options: [PDFDocumentWriteOption: Any] = flatten ? [.burnInAnnotationsOption: true] : [:]
-    try savePDF(doc, to: output, writeOptions: options, force: force, inPlaceOf: path)
+    try savePDF(doc, to: output, writeOptions: options, force: force, inPlaceOf: path,
+                password: password)
 }

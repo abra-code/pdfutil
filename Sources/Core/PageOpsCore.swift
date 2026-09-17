@@ -30,7 +30,14 @@ func deletePages(doc: PDFDocument, indices: [Int]) throws {
     guard toDelete.count < doc.pageCount else {
         throw PDFUtilError.processing("cannot delete every page")
     }
+    try requirePermission(doc.allowsDocumentAssembly, "removing pages", in: doc)
+    let expected = doc.pageCount - toDelete.count
     for idx in toDelete { autoreleasepool { doc.removePage(at: idx) } }
+    // removePage(at:) reports nothing when it declines; the count is the only
+    // evidence the pages are gone.
+    guard doc.pageCount == expected else {
+        throw PDFUtilError.processing("PDFKit did not remove the pages (\(doc.pageCount) remain, expected \(expected)); nothing was saved")
+    }
 }
 
 // One merge input: a file and an optional page range that binds to it.
@@ -107,7 +114,7 @@ func splitDocument(doc: PDFDocument, mode: SplitMode, prefix: String, force: Boo
     for (part, start) in starts.enumerated() {
         let end = (part + 1 < starts.count) ? starts[part + 1] : pageCount
         let outDoc = try documentFromPages(doc, indices: Array(start..<end))
-        try savePDF(outDoc, to: paths[part], force: force, inPlaceOf: paths[part])
+        try savePDF(outDoc, to: paths[part], force: force, inPlaceOf: paths[part], password: nil)
     }
     return paths
 }

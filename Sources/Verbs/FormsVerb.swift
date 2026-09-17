@@ -74,7 +74,7 @@ func runForms(_ args: [String]) throws {
             try fillForm(doc: doc, dataPath: fillPath)
         }
         try saveForm(doc: doc, output: common.output, force: common.force,
-                     inPlaceOf: path, flatten: flatten)
+                     inPlaceOf: path, flatten: flatten, password: common.password)
         return
     }
 

@@ -56,10 +56,11 @@ func runPages(_ args: [String]) throws {
     if let spec = extractSpec {
         let indices = try PageRange.parse(spec, pageCount: doc.pageCount)
         let out = try documentFromPages(doc, indices: indices)
-        try savePDF(out, to: common.output, force: common.force, inPlaceOf: path)
+        try savePDF(out, to: common.output, force: common.force, inPlaceOf: path, password: nil)
     } else if let spec = deleteSpec {
         let indices = try PageRange.parse(spec, pageCount: doc.pageCount)
         try deletePages(doc: doc, indices: indices)
-        try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path)
+        try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path,
+                    password: common.password)
     }
 }

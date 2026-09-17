@@ -62,5 +62,5 @@ func runMerge(_ args: [String]) throws {
     }
 
     let merged = try mergeDocuments(inputs, password: password)
-    try savePDF(merged, to: output, force: force, inPlaceOf: output)
+    try savePDF(merged, to: output, force: force, inPlaceOf: output, password: nil)
 }

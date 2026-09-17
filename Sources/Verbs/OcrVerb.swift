@@ -94,7 +94,8 @@ func runOcr(_ args: [String]) throws {
     let doc = try openPDF(path: path, password: common.password)
 
     if let output = searchableOutput {
-        try ocrSearchable(doc: doc, output: output, force: common.force, inPlaceOf: path)
+        try ocrSearchable(doc: doc, output: output, force: common.force, inPlaceOf: path,
+                          password: common.password)
         return
     }
 

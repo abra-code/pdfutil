@@ -41,7 +41,7 @@ and repeats are allowed.
 | `render` | Rasterize pages to PNG/JPEG/TIFF/HEIC at a DPI or scale |
 | `frompages` | Build a PDF from images and/or PDFs (img2pdf, mixed inputs) |
 | `encrypt` | Add a user/owner password and permission flags (`--allow`) |
-| `decrypt` | Remove password protection (re-save unencrypted) |
+| `decrypt` | Remove password protection (re-save unencrypted); `--password ''` removes the permission restrictions of a PDF that opens without a password |
 | `flatten` | Burn annotations and form fields into the page content |
 | `reduce` | Recompress/downsample images to shrink a PDF (redraw) |
 | `ocr` | Recognize text via Vision; print it or embed a searchable layer |

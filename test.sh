@@ -44,7 +44,9 @@ else
     echo "         $QPDF_PEER, or qpdf on \$PATH, or QPDF=/path/to/qpdf."
 fi
 
-if [ ! -d "$FIX" ]; then
+# Keyed on the newest fixture rather than the directory, so a checkout whose
+# fixtures predate it regenerates them all instead of skipping the new cases.
+if [ ! -f "$FIX/odd-permissions.pdf" ]; then
     echo "Generating fixtures..."
     mkdir -p "$FIX"
     swift Tests/make-fixtures.swift "$FIX"

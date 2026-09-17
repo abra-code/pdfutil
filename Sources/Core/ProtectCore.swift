@@ -49,7 +49,9 @@ func encryptDocument(path: String, output: String?, force: Bool,
         .ownerPasswordOption: owner,
         .accessPermissionsOption: NSNumber(value: raw),
     ]
-    try savePDF(doc, to: output, writeOptions: options, force: force, inPlaceOf: path)
+    // The write options set new passwords, and savePDF checks the result
+    // against the user password among them.
+    try savePDF(doc, to: output, writeOptions: options, force: force, inPlaceOf: path, password: nil)
 }
 
 // Decrypt: open with the password and write out an unencrypted copy.
@@ -73,5 +75,5 @@ func decryptDocument(path: String, output: String?, force: Bool, password: Strin
     }
     if let root = src.outlineRoot { out.outlineRoot = root }
     if let attrs = src.documentAttributes { out.documentAttributes = attrs }
-    try savePDF(out, to: output, writeOptions: [:], force: force, inPlaceOf: path)
+    try savePDF(out, to: output, writeOptions: [:], force: force, inPlaceOf: path, password: nil)
 }

@@ -75,7 +75,8 @@ func runMetadata(_ args: [String]) throws {
             writeErr("metadata: note: PDFKit resets \(overridden.joined(separator: ", ")) on save; requested value not applied\n")
         }
         try applyMetadata(doc: doc, edit: edit)
-        try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path)
+        try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path,
+                    password: common.password)
     } else {
         let attributes = readDocAttributes(doc)
         let body = common.json ? try encodeJSONString(attributes)

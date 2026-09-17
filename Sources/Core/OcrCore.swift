@@ -64,7 +64,8 @@ func ocrText(doc: PDFDocument, pages: [Int], dpi: Double,
 // Embed a searchable text layer using PDFKit's own OCR, then save. This is
 // Apple's OCR-embed path; the manual --dpi/--lang/--fast options do not apply to
 // it (PDFKit chooses the recognition parameters).
-func ocrSearchable(doc: PDFDocument, output: String, force: Bool, inPlaceOf path: String) throws {
+func ocrSearchable(doc: PDFDocument, output: String, force: Bool, inPlaceOf path: String,
+                   password: String?) throws {
     try savePDF(doc, to: output, writeOptions: [.saveTextFromOCROption: true],
-                force: force, inPlaceOf: path)
+                force: force, inPlaceOf: path, password: password)
 }

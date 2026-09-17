@@ -134,10 +134,12 @@ func watermarkBurnIn(path: String, output: String?, force: Bool, password: Strin
 // Annotation path: add a freeText watermark annotation to the selected pages and
 // save (structure-preserving). Text only; axis-aligned (rotation ignored).
 func watermarkAnnotation(doc: PDFDocument, output: String?, force: Bool,
-                         pages: [Int]?, spec: WatermarkSpec, inPlaceOf path: String) throws {
+                         pages: [Int]?, spec: WatermarkSpec, inPlaceOf path: String,
+                         password: String?) throws {
     guard let text = spec.text else {
         throw PDFUtilError.usage("--annotation supports only --text (not --image)")
     }
+    try requirePermission(doc.allowsCommenting, "adding annotations", in: doc)
     let indices = pages ?? Array(0..<doc.pageCount)
     for idx in indices {
         autoreleasepool {
@@ -159,5 +161,5 @@ func watermarkAnnotation(doc: PDFDocument, output: String?, force: Bool,
             page.addAnnotation(annotation)
         }
     }
-    try savePDF(doc, to: output, writeOptions: [:], force: force, inPlaceOf: path)
+    try savePDF(doc, to: output, writeOptions: [:], force: force, inPlaceOf: path, password: password)
 }

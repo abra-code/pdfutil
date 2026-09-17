@@ -82,6 +82,7 @@ private func metadataValue(for rawKey: String, _ rawValue: String) throws -> Any
 
 // Apply the edit to the document's attributes in memory (caller then saves).
 func applyMetadata(doc: PDFDocument, edit: MetadataEdit) throws {
+    try requirePermission(doc.allowsDocumentChanges, "changing the document information", in: doc)
     var attrs: [AnyHashable: Any] = edit.strip ? [:] : (doc.documentAttributes ?? [:])
     for (key, value) in edit.sets {
         attrs[try metadataAttribute(for: key)] = try metadataValue(for: key, value)

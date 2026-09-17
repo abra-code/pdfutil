@@ -6,7 +6,8 @@ import PDFKit
 import CoreGraphics
 
 // Rotate the given pages by `degrees`, normalizing the result to 0/90/180/270.
-func rotatePages(doc: PDFDocument, pages: [Int], degrees: Int) {
+func rotatePages(doc: PDFDocument, pages: [Int], degrees: Int) throws {
+    try requirePermission(doc.allowsDocumentAssembly, "rotating pages", in: doc)
     for idx in pages {
         autoreleasepool {
             guard let page = doc.page(at: idx) else { return }

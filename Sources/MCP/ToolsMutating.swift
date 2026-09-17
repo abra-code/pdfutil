@@ -136,7 +136,7 @@ private func toolPdfMerge(_ arguments: [String: Any], _ roots: [String]) throws 
         inputs.append(MergeInput(path: path, range: try optionalString(item, "pages")))
     }
     let merged = try mergeDocuments(inputs, password: nil)
-    try savePDF(merged, to: output, force: false, inPlaceOf: output)
+    try savePDF(merged, to: output, force: false, inPlaceOf: output, password: nil)
     return try mutationResult(output)
 }
 
@@ -146,7 +146,7 @@ private func toolPdfExtractPages(_ arguments: [String: Any], _ roots: [String]) 
     let doc = try openPDF(path: path, password: nil)
     let indices = try PageRange.parse(try requiredString(arguments, "pages"), pageCount: doc.pageCount)
     let out = try documentFromPages(doc, indices: indices)
-    try savePDF(out, to: output, force: false, inPlaceOf: output)
+    try savePDF(out, to: output, force: false, inPlaceOf: output, password: nil)
     return try mutationResult(output)
 }
 
@@ -156,7 +156,7 @@ private func toolPdfDeletePages(_ arguments: [String: Any], _ roots: [String]) t
     let doc = try openPDF(path: path, password: nil)
     let indices = try PageRange.parse(try requiredString(arguments, "pages"), pageCount: doc.pageCount)
     try deletePages(doc: doc, indices: indices)
-    try savePDF(doc, to: output, force: false, inPlaceOf: path)
+    try savePDF(doc, to: output, force: false, inPlaceOf: path, password: nil)
     return try mutationResult(output)
 }
 
@@ -169,8 +169,8 @@ private func toolPdfRotate(_ arguments: [String: Any], _ roots: [String]) throws
     let doc = try openPDF(path: path, password: nil)
     let pages = try resolvePages(try optionalString(arguments, "pages"), pageCount: doc.pageCount)
         ?? Array(0..<doc.pageCount)
-    rotatePages(doc: doc, pages: pages, degrees: angle)
-    try savePDF(doc, to: output, force: false, inPlaceOf: path)
+    try rotatePages(doc: doc, pages: pages, degrees: angle)
+    try savePDF(doc, to: output, force: false, inPlaceOf: path, password: nil)
     return try mutationResult(output)
 }
 
@@ -207,7 +207,7 @@ private func toolPdfMetadataSet(_ arguments: [String: Any], _ roots: [String]) t
 
     let doc = try openPDF(path: path, password: nil)
     try applyMetadata(doc: doc, edit: edit)
-    try savePDF(doc, to: output, force: false, inPlaceOf: path)
+    try savePDF(doc, to: output, force: false, inPlaceOf: path, password: nil)
     return try mutationResult(output)
 }
 
@@ -223,7 +223,8 @@ private func toolPdfFormsFill(_ arguments: [String: Any], _ roots: [String]) thr
 
     let doc = try openPDF(path: path, password: nil)
     try applyFormValues(doc: doc, values: fields)
-    try saveForm(doc: doc, output: output, force: false, inPlaceOf: path, flatten: flatten)
+    try saveForm(doc: doc, output: output, force: false, inPlaceOf: path, flatten: flatten,
+                 password: nil)
     return try mutationResult(output)
 }
 
@@ -271,7 +272,7 @@ private func toolPdfWatermark(_ arguments: [String: Any], _ roots: [String]) thr
     let pages = try resolvePages(try optionalString(arguments, "pages"), pageCount: doc.pageCount)
     if spec.annotation {
         try watermarkAnnotation(doc: doc, output: output, force: false, pages: pages,
-                                spec: spec, inPlaceOf: path)
+                                spec: spec, inPlaceOf: path, password: nil)
     } else {
         try watermarkBurnIn(path: path, output: output, force: false, password: nil,
                             pages: pages, spec: spec)

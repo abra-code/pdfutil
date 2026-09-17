@@ -59,5 +59,6 @@ func runCrop(_ args: [String]) throws {
     let doc = try openPDF(path: path, password: common.password)
     let pages = try resolvePages(common.pages, pageCount: doc.pageCount) ?? Array(0..<doc.pageCount)
     try cropPages(doc: doc, pages: pages, box: box, spec: spec)
-    try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path)
+    try savePDF(doc, to: common.output, force: common.force, inPlaceOf: path,
+                password: common.password)
 }
