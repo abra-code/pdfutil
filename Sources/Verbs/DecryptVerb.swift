@@ -4,17 +4,21 @@
 import Foundation
 
 private let decryptUsage = """
-Usage: pdfutil decrypt --password PW [options] <in.pdf>
+Usage: pdfutil decrypt [--password PW] [options] <in.pdf>
 
-Open an encrypted PDF with its password and re-save it with no encryption.
+Open an encrypted PDF and re-save it with no encryption.
 Structure-preserving: annotations, links, outline, and form fields are kept.
 
+A PDF that needs a password to open needs it here too. A PDF that opens
+without one - protected only by an owner password that restricts editing,
+printing or copying - needs no password: the copy carries no restrictions.
+
 The password may be given inline (--password) or read from standard input
-(--password-stdin), so it need not appear in the process arguments. Exactly one
-of the two is required.
+(--password-stdin), so it need not appear in the process arguments. At most
+one of the two may be given.
 
 Options:
-      --password PW     Password for the encrypted PDF
+      --password PW     Password that opens the encrypted PDF
       --password-stdin  Read the password from standard input
   -o, --output FILE     Output file (default: edit in place)
       --force           Overwrite an existing output file
@@ -49,9 +53,8 @@ func runDecrypt(_ args: [String]) throws {
     if passwordStdin {
         common.password = try readPasswordFromStdin(option: "--password-stdin")
     }
-    guard let password = common.password else {
-        throw PDFUtilError.usage("--password or --password-stdin is required")
-    }
+    // No password is a valid request: openPDF refuses a PDF that needs one,
+    // with the same message every other verb gives.
     try decryptDocument(path: scanner.positionals[0], output: common.output,
-                        force: common.force, password: password)
+                        force: common.force, password: common.password)
 }

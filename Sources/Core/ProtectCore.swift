@@ -62,7 +62,7 @@ func encryptDocument(path: String, output: String?, force: Bool,
 // encryption - and reattach the outline and Info attributes. Page-level
 // annotations (including form widgets) travel with the page copies; a
 // document-level AcroForm dictionary, if any, is not carried over.
-func decryptDocument(path: String, output: String?, force: Bool, password: String) throws {
+func decryptDocument(path: String, output: String?, force: Bool, password: String?) throws {
     let src = try openPDF(path: path, password: password)
     let out = PDFDocument()
     for i in 0..<src.pageCount {

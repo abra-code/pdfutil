@@ -78,7 +78,7 @@ func openCGPDF(path: String, password: String?) throws -> CGPDFDocument {
 func requirePermission(_ allowed: Bool, _ what: String, in doc: PDFDocument) throws {
     guard !allowed else { return }
     let name = doc.documentURL?.path ?? "the PDF"
-    throw PDFUtilError.processing("\(name): its permissions do not allow \(what); nothing was saved. Open it with the owner password, or remove the restrictions with `pdfutil decrypt` (use --password '' when the PDF opens without a password) and run this again")
+    throw PDFUtilError.processing("\(name): its permissions do not allow \(what); nothing was saved. Open it with the owner password, or remove the restrictions with `pdfutil decrypt` (no password is needed when the PDF opens without one) and run this again")
 }
 
 // Save a PDFDocument under the overwrite policy (decision 6): a named output that
@@ -145,7 +145,7 @@ private func writtenPDFProblem(_ url: URL, password: String?, destPath: String) 
         }
         if !written.isLocked { return nil }
         if let password = password, written.unlock(withPassword: password) { return nil }
-        return "\(destPath): PDFKit wrote a copy that does not open with the original's password, so nothing was saved. This PDF's protection is stored in a form PDFKit cannot re-save. Remove the protection with `pdfutil decrypt` (use --password '' when the PDF opens without a password), then run this again"
+        return "\(destPath): PDFKit wrote a copy that does not open with the original's password, so nothing was saved. This PDF's protection is stored in a form PDFKit cannot re-save. Remove the protection with `pdfutil decrypt` (no password is needed when the PDF opens without one), then run this again"
     }
 }
 

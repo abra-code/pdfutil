@@ -71,7 +71,10 @@ printf '' | expect_code 1 "$PDFUTIL" decrypt --password-stdin "$TMP/encs.pdf"
 # Argument errors.
 expect_code 1 "$PDFUTIL" encrypt -o "$TMP/x.pdf" "$FIX/text.pdf"
 expect_code 1 "$PDFUTIL" encrypt --user-password p --allow bogus -o "$TMP/x.pdf" "$FIX/text.pdf"
-expect_code 1 "$PDFUTIL" decrypt -o "$TMP/x.pdf" "$TMP/enc.pdf"
+# No password for a PDF that needs one is a processing error naming the fix,
+# like every other verb; a PDF that opens without one needs none (restrictions.sh).
+expect_code 2 "$PDFUTIL" decrypt -o "$TMP/x.pdf" "$TMP/enc.pdf"
+expect_grep "password-protected (use --password)" sh -c '"$1" decrypt -o "$2" "$3" 2>&1' _ "$PDFUTIL" "$TMP/x.pdf" "$TMP/enc.pdf"
 
 expect_ok "$PDFUTIL" encrypt --help
 expect_ok "$PDFUTIL" decrypt --help

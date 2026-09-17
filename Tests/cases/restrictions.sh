@@ -32,9 +32,11 @@ expect_ok "$PDFUTIL" crop --margins 10,10,10,10 -o "$TMP/r-crop.pdf" "$FIX/restr
 expect_ok "$PDFUTIL" pages --extract 2-3 -o "$TMP/r-ext.pdf" "$FIX/restricted.pdf"
 expect_grep "pages: 2" "$PDFUTIL" info "$TMP/r-ext.pdf"
 
-# decrypt with an empty password removes the restrictions, after which the
-# delete goes through.
-expect_ok "$PDFUTIL" decrypt --password '' -o "$TMP/r-dec.pdf" "$FIX/restricted.pdf"
+# decrypt needs no password to remove the restrictions, after which the delete
+# goes through. An explicit empty password works the same.
+expect_ok "$PDFUTIL" decrypt -o "$TMP/r-dec.pdf" "$FIX/restricted.pdf"
+expect_nogrep "Encrypt" sh -c 'LC_ALL=C grep -ao "/Encrypt" "$1"' _ "$TMP/r-dec.pdf"
+expect_ok "$PDFUTIL" decrypt --password '' -o "$TMP/r-dec-empty.pdf" "$FIX/restricted.pdf"
 expect_ok "$PDFUTIL" pages --delete 1 -o "$TMP/r-dec-del.pdf" "$TMP/r-dec.pdf"
 expect_grep "pages: 4" "$PDFUTIL" info "$TMP/r-dec-del.pdf"
 
@@ -60,7 +62,7 @@ expect_ok cmp -s "$FIX/odd-permissions.pdf" "$TMP/odd-inplace.pdf"
 # and the decrypted copy can then be edited.
 expect_ok "$PDFUTIL" pages --extract 2-3 -o "$TMP/odd-ext.pdf" "$FIX/odd-permissions.pdf"
 expect_grep "pages: 2" "$PDFUTIL" info "$TMP/odd-ext.pdf"
-expect_ok "$PDFUTIL" decrypt --password '' -o "$TMP/odd-dec.pdf" "$FIX/odd-permissions.pdf"
+expect_ok "$PDFUTIL" decrypt -o "$TMP/odd-dec.pdf" "$FIX/odd-permissions.pdf"
 expect_ok "$PDFUTIL" rotate 90 -o "$TMP/odd-dec-rot.pdf" "$TMP/odd-dec.pdf"
 expect_grep "rotation 90" "$PDFUTIL" info "$TMP/odd-dec-rot.pdf"
 
